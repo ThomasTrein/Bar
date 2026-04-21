@@ -1,0 +1,59 @@
+{% extends "base_admin.html" %}
+{% block title %}Bestellingen — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Bestellingen</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <select name="person_id" class="form-input">
+    <option value="">Alle personen</option>
+    {% for p in personen %}
+    <option value="{{ p.id }}" {% if filters.person_id == p.id %}selected{% endif %}>
+      {{ p.bijnaam or p.voornaam }}
+    </option>
+    {% endfor %}
+  </select>
+  <input type="date" name="datum_van" value="{{ filters.datum_van or '' }}" class="form-input">
+  <input type="date" name="datum_tot" value="{{ filters.datum_tot or '' }}" class="form-input">
+  <button type="submit" class="btn-primary">Filteren</button>
+  <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Reset</a>
+</form>
+
+<table class="admin-table">
+  <thead>
+    <tr><th>Tijdstip</th><th>Geplaatst door</th><th>Items</th><th>Totaal</th><th>Type</th><th>Video</th><th>Acties</th></tr>
+  </thead>
+  <tbody>
+    {% for b in bestellingen %}
+    <tr class="{% if b.geannuleerd %}row-inactive{% endif %}">
+      <td>{{ b.tijdstip[:16] if b.tijdstip else '' }}</td>
+      <td>{{ b.bijnaam or b.voornaam or '?' }}</td>
+      <td>{{ b.items or 0 }}</td>
+      <td>€{{ "%.2f"|format(b.totaal or 0) }}</td>
+      <td>
+        {% if b.type == 'bond' %}<span class="badge-special">Bond</span>
+        {% else %}Normaal{% endif %}
+        {% if b.geannuleerd %}<span class="badge-danger">Geannuleerd</span>{% endif %}
+      </td>
+      <td>
+        {% if b.video_path %}
+        <a href="{{ url_for('serve_video', pad=b.video_path) }}" target="_blank" class="btn-sm btn-secondary">Bekijk</a>
+        {% else %}—{% endif %}
+      </td>
+      <td class="action-cell">
+        <a href="{{ url_for('admin.bestelling_detail', oid=b.id) }}" class="btn-sm btn-secondary">Detail</a>
+        {% if not b.geannuleerd %}
+        <form method="POST" action="{{ url_for('admin.bestelling_verwijderen', oid=b.id) }}"
+              style="display:inline" onsubmit="return confirm('Bestelling annuleren?')">
+          <button class="btn-sm btn-danger">Annuleren</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">Geen bestellingen gevonden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

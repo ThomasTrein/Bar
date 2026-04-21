@@ -1,0 +1,54 @@
+{% extends "base_admin.html" %}
+{% block title %}Logboek — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Logboek</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <select name="type" class="form-input">
+    <option value="">Alle types</option>
+    {% for t in log_types %}
+    <option value="{{ t }}" {% if filters.type == t %}selected{% endif %}>{{ t }}</option>
+    {% endfor %}
+  </select>
+  <select name="person_id" class="form-input">
+    <option value="">Alle personen</option>
+    {% for p in personen %}
+    <option value="{{ p.id }}" {% if filters.person_id == p.id %}selected{% endif %}>
+      {{ p.bijnaam or p.voornaam }}
+    </option>
+    {% endfor %}
+  </select>
+  <input type="date" name="datum_van" value="{{ filters.datum_van or '' }}" class="form-input">
+  <input type="date" name="datum_tot" value="{{ filters.datum_tot or '' }}" class="form-input">
+  <button type="submit" class="btn-primary">Filteren</button>
+  <a href="{{ url_for('admin.logs') }}" class="btn-secondary">Reset</a>
+</form>
+
+<table class="admin-table">
+  <thead>
+    <tr><th>Tijdstip</th><th>Type</th><th>Persoon</th><th>Omschrijving</th><th>Video</th></tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr>
+      <td>{{ log.tijdstip[:16] if log.tijdstip else '' }}</td>
+      <td><span class="badge-secondary">{{ log.type }}</span></td>
+      <td>{{ log.bijnaam or log.voornaam or '—' }}</td>
+      <td>{{ log.beschrijving }}</td>
+      <td>
+        {% if log.referentie_id and log.referentie_type == 'bestelling' %}
+          {% set vid = order_videos.get(log.referentie_id, '') %}
+          {% if vid %}
+          <a href="{{ url_for('serve_video', pad=vid) }}" target="_blank" class="btn-sm btn-secondary">▶ Video</a>
+          {% else %}—{% endif %}
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Geen logs gevonden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

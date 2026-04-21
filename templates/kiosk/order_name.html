@@ -1,0 +1,76 @@
+{% extends "base_kiosk.html" %}
+{% block title %}{% if extra %}Extra persoon{% else %}Naam selecteren{% endif %} — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{% if extra %}{{ url_for('kiosk.bestelling_producten') }}{% else %}{{ url_for('kiosk.home') }}{% endif %}" class="btn-back">← {% if extra %}Terug{% else %}Annuleren{% endif %}</a>
+    <h1>{% if extra %}Extra persoon toevoegen{% else %}Selecteer jouw naam{% endif %}</h1>
+  </div>
+
+  {# Zoekbalk #}
+  <div class="search-bar-wrap">
+    <input type="text" id="zoekbalk" class="search-input"
+           placeholder="🔍 Zoek naam..." oninput="filterPersonen(this.value)"
+           autocomplete="off">
+  </div>
+
+  {# Letter snelfilter #}
+  <div class="letter-nav" id="letterNav"></div>
+
+  {# Personenlijst #}
+  <div class="personen-grid" id="personenGrid">
+    {% for p in personen %}
+    <form method="POST" action="{{ url_for('kiosk.bestelling_extra_persoon_post' if extra else 'kiosk.bestelling_naam_post') }}">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart" data-naam="{{ (p.bijnaam or p.voornaam)|lower }}">
+        <div class="persoon-foto">
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+        {% if p.achternaam %}<div class="persoon-achternaam">{{ p.achternaam }}</div>{% endif %}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+  {# Nieuw persoon knop #}
+  <div class="bottom-bar">
+    <a href="{{ url_for('kiosk.persoon_nieuw') }}" class="btn-secondary">
+      ➕ Nieuwe persoon aanmaken
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Bouw letter nav
+  const kaarten = document.querySelectorAll('.persoon-kaart');
+  const letters = new Set();
+  kaarten.forEach(k => letters.add(k.dataset.naam[0]?.toUpperCase()));
+  const nav = document.getElementById('letterNav');
+  [...letters].sort().forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'letter-btn';
+    btn.textContent = l;
+    btn.onclick = () => scrollToLetter(l);
+    nav.appendChild(btn);
+  });
+
+  function scrollToLetter(l) {
+    const target = [...kaarten].find(k => k.dataset.naam[0]?.toUpperCase() === l);
+    if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
+  }
+
+  function filterPersonen(q) {
+    const lq = q.toLowerCase().trim();
+    kaarten.forEach(k => {
+      k.closest('form').style.display = (!lq || k.dataset.naam.includes(lq)) ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}

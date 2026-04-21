@@ -1,0 +1,110 @@
+{% extends "base_admin.html" %}
+{% block title %}Personen — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>👤 Persoonsbeheer</h1>
+  <button class="btn-primary" onclick="toggleNewForm()">➕ Persoon toevoegen</button>
+</div>
+
+{# Nieuw persoon formulier #}
+<div id="new-person-form" class="card hidden" style="margin-bottom:24px">
+  <h3 style="margin:0 0 16px">Nieuwe persoon</h3>
+  <form method="POST" action="{{ url_for('admin.persoon_nieuw') }}" enctype="multipart/form-data" class="inline-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Voornaam *</label>
+        <input type="text" name="voornaam" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label>Achternaam</label>
+        <input type="text" name="achternaam" class="form-input">
+      </div>
+      <div class="form-group">
+        <label>Bijnaam</label>
+        <input type="text" name="bijnaam" class="form-input">
+      </div>
+      <div class="form-group">
+        <label>Foto</label>
+        <input type="file" name="foto" accept="image/*" class="form-file-input">
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Opslaan</button>
+    <button type="button" class="btn-secondary" onclick="toggleNewForm()">Annuleren</button>
+  </form>
+</div>
+
+<table class="admin-table">
+  <thead>
+    <tr><th>Foto</th><th>Naam</th><th>Bijnaam</th><th>Actief</th><th>Acties</th></tr>
+  </thead>
+  <tbody>
+    {% for p in personen %}
+    <tr class="{% if not p.actief %}row-inactive{% endif %}">
+      <td>
+        {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}"
+             class="table-thumb" alt="">{% else %}—{% endif %}
+      </td>
+      <td>{{ p.voornaam }} {{ p.achternaam or '' }}</td>
+      <td>{{ p.bijnaam or '—' }}</td>
+      <td>{% if p.is_bond %}<span class="badge-special">DE BOND</span>
+          {% elif p.actief %}✅{% else %}❌{% endif %}</td>
+      <td class="action-cell">
+        {% if not p.is_bond %}
+        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">✏️</button>
+        <form method="POST" action="{{ url_for('admin.persoon_toggle', pid=p.id) }}" style="display:inline">
+          <button class="btn-sm {% if p.actief %}btn-warning{% else %}btn-primary{% endif %}">
+            {% if p.actief %}Deactiveren{% else %}Activeren{% endif %}
+          </button>
+        </form>
+        <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
+              style="display:inline"
+              onsubmit="return confirm('Persoon permanent verwijderen?')">
+          <button class="btn-sm btn-danger">🗑️</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% if not p.is_bond %}
+    <tr id="edit-{{ p.id }}" class="edit-row hidden">
+      <td colspan="5">
+        <form method="POST" action="{{ url_for('admin.persoon_bewerken', pid=p.id) }}"
+              enctype="multipart/form-data" class="inline-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Voornaam</label>
+              <input type="text" name="voornaam" value="{{ p.voornaam }}" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Achternaam</label>
+              <input type="text" name="achternaam" value="{{ p.achternaam or '' }}" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Bijnaam</label>
+              <input type="text" name="bijnaam" value="{{ p.bijnaam or '' }}" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Nieuwe foto</label>
+              <input type="file" name="foto" accept="image/*" class="form-file-input">
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Opslaan</button>
+          <button type="button" class="btn-secondary" onclick="toggleEditRow({{ p.id }})">Annuleren</button>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleEditRow(id) {
+    document.getElementById('edit-' + id).classList.toggle('hidden');
+  }
+  function toggleNewForm() {
+    document.getElementById('new-person-form').classList.toggle('hidden');
+  }
+</script>
+{% endblock %}

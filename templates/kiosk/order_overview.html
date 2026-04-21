@@ -1,0 +1,62 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Besteloverzicht — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.bestelling_producten') }}" class="btn-back">← Terug</a>
+    <h1>Besteloverzicht</h1>
+  </div>
+
+  <div class="overzicht-list">
+    {% set ns = namespace(current='') %}
+    {% for item in order.regels %}
+      {% if item.person_naam != ns.current %}
+        {% if not loop.first %}</div>{% endif %}
+        <div class="overzicht-persoon">
+        <div class="overzicht-persoon-naam">👤 {{ item.person_naam }}</div>
+        {% set ns.current = item.person_naam %}
+      {% endif %}
+      <div class="overzicht-item">
+        <span class="ov-hoeveelheid">{{ item.hoeveelheid }}×</span>
+        <span class="ov-naam">{{ item.product_naam }}</span>
+        {% if (item.stock or 0) <= 0 %}
+          <span class="stock-leeg-label-small">NIET IN STOCK</span>
+        {% endif %}
+        {% if toon_prijs %}
+          <span class="ov-prijs">€{{ "%.2f"|format(item.hoeveelheid * item.prijs) }}</span>
+        {% endif %}
+        <button class="ov-delete" onclick="verwijderItem({{ loop.index0 }})">✕</button>
+      </div>
+    {% endfor %}
+    {% if order.regels %}</div>{% endif %}
+
+    {% if toon_prijs %}
+    <div class="overzicht-totaal">
+      Totaal: €{{ "%.2f"|format(order.regels | sum(attribute='prijs') | float) }}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="bottom-bar">
+    <form method="POST" action="{{ url_for('kiosk.bestelling_bevestigen') }}">
+      <button type="submit" class="btn-confirm">✅ Bevestigen & openen</button>
+    </form>
+    <form method="POST" action="{{ url_for('kiosk.bestelling_annuleren') }}">
+      <button type="submit" class="btn-danger" onclick="return confirm('Annuleren?')">✕ Annuleren</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function verwijderItem(idx) {
+    const r = await fetch('/api/bestelling/item-verwijderen', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({index: idx})
+    });
+    if ((await r.json()).ok) location.reload();
+  }
+</script>
+{% endblock %}

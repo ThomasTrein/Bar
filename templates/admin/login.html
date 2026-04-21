@@ -1,0 +1,18 @@
+{% extends "base_admin.html" %}
+{% block title %}Admin login — KSA Bar{% endblock %}
+{% block content %}
+<div class="login-screen">
+  <div class="login-card">
+    <h1>🍺 KSA Bar Admin</h1>
+    {% if fout %}<div class="alert alert-danger">{{ fout }}</div>{% endif %}
+    <form method="POST">
+      <div class="form-group">
+        <label>Wachtwoord</label>
+        <input type="password" name="wachtwoord" class="form-input" autofocus required>
+      </div>
+      <button type="submit" class="btn-primary btn-full">Inloggen</button>
+    </form>
+    <a href="{{ url_for('kiosk.home') }}" class="back-link">← Terug naar kiosk</a>
+  </div>
+</div>
+{% endblock %}

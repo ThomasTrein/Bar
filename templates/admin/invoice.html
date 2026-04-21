@@ -1,0 +1,48 @@
+{% extends "base_admin.html" %}
+{% block title %}Rekening — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Rekening</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <label>Van: <input type="date" name="datum_van" value="{{ datum_van }}" class="form-input"></label>
+  <label>Tot: <input type="date" name="datum_tot" value="{{ datum_tot }}" class="form-input"></label>
+  <button type="submit" class="btn-primary">Genereren</button>
+</form>
+
+{% if overzicht %}
+<div class="export-bar">
+  <a href="{{ url_for('admin.rekening_export', formaat='excel', datum_van=datum_van, datum_tot=datum_tot) }}"
+     class="btn-secondary">Excel</a>
+  <a href="{{ url_for('admin.rekening_export', formaat='pdf', datum_van=datum_van, datum_tot=datum_tot) }}"
+     class="btn-secondary">PDF</a>
+</div>
+
+<table class="admin-table">
+  <thead>
+    <tr><th>Naam</th><th>Bestellingen</th><th>Totaal</th></tr>
+  </thead>
+  <tbody>
+    {% for r in overzicht %}
+    <tr class="{% if r.is_bond %}row-special{% endif %}">
+      <td>
+        {{ r.bijnaam or ((r.voornaam or '') + ' ' + (r.achternaam or '')) | trim }}
+        {% if r.is_bond %}<span class="badge-special">KSA</span>{% endif %}
+      </td>
+      <td>{{ r.bestellingen }}</td>
+      <td><strong>€{{ "%.2f"|format(r.totaal) }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2"><strong>Totaal omzet</strong></td>
+      <td><strong>€{{ "%.2f"|format(overzicht | sum(attribute='totaal')) }}</strong></td>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p>Geen bestellingen gevonden voor de geselecteerde periode.</p>
+{% endif %}
+{% endblock %}

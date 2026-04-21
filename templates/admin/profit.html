@@ -1,0 +1,47 @@
+{% extends "base_admin.html" %}
+{% block title %}Winst/Verlies — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Winst / Verlies rapport</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <label>Van: <input type="date" name="datum_van" value="{{ datum_van }}" class="form-input"></label>
+  <label>Tot: <input type="date" name="datum_tot" value="{{ datum_tot }}" class="form-input"></label>
+  <button type="submit" class="btn-primary">Tonen</button>
+</form>
+
+{% if stats %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Product</th><th>Verkocht</th><th>Omzet</th><th>Kosten</th><th>Winst</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in stats %}
+    <tr class="{% if s.winst < 0 %}row-danger{% endif %}">
+      <td>{{ s.naam }}</td>
+      <td>{{ s.verkocht }}</td>
+      <td>€{{ "%.2f"|format(s.omzet) }}</td>
+      <td>€{{ "%.2f"|format(s.kosten) }}</td>
+      <td>€{{ "%.2f"|format(s.winst) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td><strong>Totaal</strong></td>
+      <td></td>
+      <td><strong>€{{ "%.2f"|format(totaal_omzet) }}</strong></td>
+      <td><strong>€{{ "%.2f"|format(totaal_kosten) }}</strong></td>
+      <td class="{% if totaal_winst < 0 %}text-danger{% endif %}">
+        <strong>€{{ "%.2f"|format(totaal_winst) }}</strong>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p>Geen data beschikbaar.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base_admin.html" %}
+{% block title %}Database — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🗄️ Database viewer</h1>
+  <a href="{{ url_for('admin.backup_download') }}" class="btn-secondary">⬇ Backup downloaden</a>
+</div>
+
+<div class="db-table-list">
+  {% for t in tabellen %}
+  <a href="{{ url_for('admin.database_viewer', tabel=t) }}"
+     class="db-table-btn {% if tabel == t %}active{% endif %}">
+    {{ t }} <span class="db-count">{{ counts[t] }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<div style="margin-bottom:12px; color: var(--text-dim); font-size: 14px;">
+  Tabel: <strong style="color:var(--accent)">{{ tabel }}</strong> — {{ totaal }} rijen
+  {% if totaal > 200 %}<span style="color:var(--warning)"> (toont laatste 200)</span>{% endif %}
+</div>
+
+{% if rijen %}
+<div style="overflow-x: auto;">
+  <table class="admin-table">
+    <thead>
+      <tr>{% for k in kolommen %}<th>{{ k }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for rij in rijen %}
+      <tr>
+        {% for k in kolommen %}
+        <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+          {{ rij[k] if rij[k] is not none else '—' }}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p style="color: var(--text-dim)">Geen rijen gevonden.</p>
+{% endif %}
+{% endblock %}

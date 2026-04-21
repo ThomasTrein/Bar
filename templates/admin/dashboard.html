@@ -1,0 +1,94 @@
+{% extends "base_admin.html" %}
+{% block title %}Dashboard — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Dashboard</h1>
+  <button class="btn-primary" onclick="toggleForm('nieuw-persoon-form')">➕ Persoon toevoegen</button>
+</div>
+
+<div id="nieuw-persoon-form" class="collapsible hidden" style="margin-bottom:20px">
+  <h2>Nieuw persoon aanmaken</h2>
+  <form method="POST" action="{{ url_for('admin.persoon_nieuw') }}" enctype="multipart/form-data" class="admin-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Voornaam *</label>
+        <input type="text" name="voornaam" required class="form-input">
+      </div>
+      <div class="form-group">
+        <label>Achternaam</label>
+        <input type="text" name="achternaam" class="form-input">
+      </div>
+      <div class="form-group">
+        <label>Bijnaam</label>
+        <input type="text" name="bijnaam" class="form-input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Foto (optioneel)</label>
+      <input type="file" name="foto" accept="image/*" class="form-file-input">
+    </div>
+    <button type="submit" class="btn-primary">Aanmaken</button>
+    <button type="button" class="btn-secondary" onclick="toggleForm('nieuw-persoon-form')">Annuleren</button>
+  </form>
+</div>
+
+<div class="dashboard-grid">
+  <div class="dash-card">
+    <h2>Openstaande bedragen</h2>
+    <table class="admin-table">
+      <thead><tr><th>Naam</th><th>Totaal</th></tr></thead>
+      <tbody>
+        {% for r in schulden %}
+        <tr>
+          <td>{{ r.bijnaam or r.voornaam }}</td>
+          <td>€{{ "%.2f"|format(r.totaal) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2">Geen openstaande bedragen</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="dash-card">
+    <h2>Stock (laagste eerst)</h2>
+    <table class="admin-table">
+      <thead><tr><th>Product</th><th>Stock</th></tr></thead>
+      <tbody>
+        {% for p in stock %}
+        <tr class="{% if (p.stock or 0) <= 0 %}row-danger{% endif %}">
+          <td>{{ p.naam }}</td>
+          <td>{% if (p.stock or 0) <= 0 %}<span class="badge-danger">LEEG</span>{% else %}{{ p.stock }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="dash-card dash-card-wide">
+    <h2>Recente bestellingen</h2>
+    <table class="admin-table">
+      <thead><tr><th>Tijdstip</th><th>Persoon</th><th>Items</th><th>Totaal</th></tr></thead>
+      <tbody>
+        {% for b in recente %}
+        <tr>
+          <td>{{ b.tijdstip[:16] if b.tijdstip else '' }}</td>
+          <td>{{ b.bijnaam or b.voornaam or '?' }}</td>
+          <td>{{ b.items or 0 }}</td>
+          <td>€{{ "%.2f"|format(b.totaal or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">Nog geen bestellingen</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Alle bestellingen →</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleForm(id) { document.getElementById(id).classList.toggle('hidden'); }
+</script>
+{% endblock %}

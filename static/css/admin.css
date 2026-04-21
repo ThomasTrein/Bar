@@ -1,0 +1,207 @@
+/* ===== KSA Bar Admin CSS — Dark Theme ===== */
+:root {
+  --bg:       #0f0f13;
+  --surface:  #1a1a24;
+  --surface2: #22222f;
+  --border:   #33334a;
+  --accent:   #4f8ef7;
+  --accent2:  #3a7de8;
+  --text:     #e8e8f0;
+  --text-dim: #9090b0;
+  --danger:   #e05555;
+  --success:  #4caf7a;
+  --warning:  #e0923a;
+  --radius:   8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body.admin-body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh;
+}
+
+/* ---- Nav ---- */
+.admin-nav {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px; flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+}
+.nav-brand { color: var(--accent); text-decoration: none; font-size: 18px; font-weight: 700;
+             padding: 14px 16px 14px 0; white-space: nowrap; }
+.nav-links { display: flex; flex-wrap: wrap; gap: 2px; }
+.nav-links a {
+  color: var(--text-dim); text-decoration: none;
+  padding: 14px 12px; font-size: 14px; border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.nav-links a:hover { background: var(--surface2); color: var(--text); }
+.nav-logout { color: var(--danger) !important; }
+.nav-kiosk  { color: var(--accent) !important; }
+
+/* ---- Main ---- */
+.admin-main { max-width: 1300px; margin: 0 auto; padding: 24px 16px; }
+
+/* ---- Alerts ---- */
+.alert { padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px; font-size: 15px; }
+.alert-success { background: #1a3a28; color: var(--success); border: 1px solid #2e6b45; }
+.alert-danger  { background: #3a1a1a; color: var(--danger); border: 1px solid #6b2e2e; }
+.alert-warning { background: #3a2a10; color: var(--warning); border: 1px solid #6b4a1a; }
+
+/* ---- Page headers ---- */
+.admin-page-header { display: flex; align-items: center; justify-content: space-between;
+                     margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.admin-page-header h1 { font-size: 24px; }
+h1 { font-size: 24px; margin-bottom: 16px; }
+h2 { font-size: 18px; margin: 16px 0 10px; color: var(--text); }
+
+/* ---- Buttons ---- */
+.btn-primary {
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--radius);
+  padding: 10px 18px; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary {
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 18px; font-size: 14px;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-secondary:hover { background: var(--border); }
+.btn-danger {
+  background: var(--danger); color: #fff;
+  border: none; border-radius: var(--radius);
+  padding: 10px 18px; font-size: 14px;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-warning {
+  background: var(--warning); color: #fff;
+  border: none; border-radius: var(--radius);
+  padding: 10px 18px; font-size: 14px; cursor: pointer;
+}
+.btn-full { width: 100%; justify-content: center; padding: 14px; font-size: 16px; }
+.btn-sm   { padding: 6px 10px; font-size: 13px; border-radius: 6px; }
+.back-link { display: block; text-align: center; margin-top: 16px; color: var(--text-dim);
+             text-decoration: none; font-size: 14px; }
+
+/* ---- Forms ---- */
+.admin-form  { background: var(--surface); border: 1px solid var(--border);
+               border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+.form-row    { display: flex; gap: 16px; flex-wrap: wrap; }
+.form-group  { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; flex: 1; min-width: 180px; }
+.form-group label { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+.form-input  {
+  padding: 9px 12px; font-size: 14px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface2); color: var(--text); width: 100%;
+}
+.form-input:focus { outline: none; border-color: var(--accent); }
+.form-file-input { padding: 8px; font-size: 13px; border: 1px solid var(--border);
+                   border-radius: 6px; background: var(--surface2); color: var(--text); width: 100%; }
+.short-input { max-width: 100px; }
+.checkbox-row  { display: flex; gap: 16px; flex-wrap: wrap; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.inline-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px; }
+.filter-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+               margin-bottom: 16px; background: var(--surface);
+               border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.form-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.settings-form { background: var(--surface); border: 1px solid var(--border);
+                 border-radius: var(--radius); padding: 24px; max-width: 600px; }
+
+/* ---- Tables ---- */
+.admin-table { width: 100%; border-collapse: collapse; background: var(--surface);
+               border-radius: var(--radius); overflow: hidden;
+               box-shadow: 0 1px 4px rgba(0,0,0,.4); margin-bottom: 20px; }
+.admin-table th { background: var(--surface2); padding: 10px 14px; text-align: left;
+                  font-size: 13px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+.admin-table td { padding: 10px 14px; font-size: 14px; border-bottom: 1px solid var(--border); }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover { background: var(--surface2); }
+.action-cell { white-space: nowrap; display: flex; gap: 6px; align-items: center; }
+.table-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.row-inactive { opacity: .45; }
+.row-danger   { background: rgba(224,85,85,.1); }
+.row-warning  { background: rgba(224,146,58,.1); }
+.row-special  { background: rgba(79,142,247,.1); }
+.totaal-row   { background: var(--surface2); font-weight: 700; }
+tfoot tr { border-top: 2px solid var(--border); }
+.text-success { color: var(--success); font-weight: 600; }
+.text-danger  { color: var(--danger);  font-weight: 600; }
+
+/* ---- Badges ---- */
+.badge-danger   { background: var(--danger);  color: #fff; border-radius: 4px;
+                  padding: 2px 6px; font-size: 11px; font-weight: 700; }
+.badge-warning  { background: var(--warning); color: #fff; border-radius: 4px;
+                  padding: 2px 6px; font-size: 11px; font-weight: 700; }
+.badge-special  { background: #6a0dad; color: #fff; border-radius: 4px;
+                  padding: 2px 6px; font-size: 11px; font-weight: 700; }
+.badge-secondary { background: var(--surface2); color: var(--text-dim); border-radius: 4px;
+                   padding: 2px 8px; font-size: 12px; font-weight: 700;
+                   border: 1px solid var(--border); }
+.badge-live     { background: var(--danger); color: #fff; border-radius: 4px;
+                  padding: 2px 6px; font-size: 11px; font-weight: 700; animation: pulse 1s infinite; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+
+/* ---- Filter bar ---- */
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-btn {
+  padding: 8px 16px; border-radius: 20px; font-size: 13px; text-decoration: none;
+  color: var(--text-dim); background: var(--surface); border: 1px solid var(--border);
+}
+.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ---- Collapsible ---- */
+.collapsible { background: var(--surface); border: 1px solid var(--border);
+               border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+.collapsible.hidden { display: none; }
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+/* ---- Dashboard ---- */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+                  gap: 20px; }
+.dash-card { background: var(--surface); border: 1px solid var(--border);
+             border-radius: var(--radius); padding: 20px; }
+.dash-card h2 { font-size: 17px; margin-bottom: 12px; color: var(--accent); }
+.dash-card-wide { grid-column: 1 / -1; }
+
+/* ---- Edit rows ---- */
+.edit-row { background: var(--surface2); }
+.edit-row.hidden { display: none; }
+
+/* ---- Login ---- */
+.login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+              padding: 36px 32px; width: 100%; max-width: 380px;
+              box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.login-card h1 { font-size: 24px; margin-bottom: 24px; text-align: center; color: var(--accent); }
+
+/* ---- Hardware test ---- */
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+.hw-deur-card { background: var(--surface); border: 1px solid var(--border);
+                border-radius: var(--radius); padding: 20px; }
+.hw-deur-card h2 { margin-bottom: 16px; }
+.hw-status { margin-bottom: 16px; }
+.hw-status-item { display: flex; align-items: center; justify-content: space-between;
+                  padding: 8px 0; border-bottom: 1px solid var(--border); }
+.hw-buttons { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- Rekening ---- */
+.export-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+
+/* ---- Detail ---- */
+.detail-info { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+               padding: 16px; margin-bottom: 20px; }
+.detail-info p { margin-bottom: 6px; font-size: 14px; }
+
+/* ---- Database viewer ---- */
+.db-table-list { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.db-table-btn { padding: 8px 16px; background: var(--surface2); border: 1px solid var(--border);
+                border-radius: 20px; color: var(--text-dim); text-decoration: none; font-size: 13px; cursor: pointer; }
+.db-table-btn:hover, .db-table-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.db-count { font-size: 12px; background: var(--border); border-radius: 10px;
+            padding: 1px 6px; margin-left: 4px; }

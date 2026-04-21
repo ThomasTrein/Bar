@@ -1,0 +1,55 @@
+{% extends "base_admin.html" %}
+{% block title %}Hardware test — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🔧 Hardware test</h1>
+</div>
+
+<div class="hw-grid">
+  {% for d in [1,2,3] %}
+  <div class="hw-deur-card" id="hw-deur-{{ d }}">
+    <h2>Deur {{ d }}</h2>
+    <div class="hw-status">
+      <div class="hw-status-item">
+        <span>Slot:</span>
+        <span class="hw-indicator" id="slot-{{ d }}">…</span>
+      </div>
+      <div class="hw-status-item">
+        <span>Reed:</span>
+        <span class="hw-indicator" id="reed-{{ d }}">…</span>
+      </div>
+    </div>
+    <div class="hw-buttons">
+      <button class="btn-primary" onclick="hwAct({{ d }}, 'unlock')">🔓 Ontgrendelen</button>
+      <button class="btn-secondary" onclick="hwAct({{ d }}, 'lock')">🔒 Vergrendelen</button>
+      <button class="btn-warning" onclick="hwAct({{ d }}, 'simulate-open')">📂 Sim Open</button>
+      <button class="btn-warning" onclick="hwAct({{ d }}, 'simulate-close')">📁 Sim Sluit</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function hwAct(deur, actie) {
+    await fetch(`/api/hardware-test/deur/${deur}/${actie}`, {method:'POST'});
+    pollStatus();
+  }
+
+  async function pollStatus() {
+    const r = await fetch('/api/deur-status');
+    const data = await r.json();
+    [1,2,3].forEach(d => {
+      const st = data.deuren[String(d)] || {};
+      const slotEl = document.getElementById('slot-' + d);
+      const reedEl = document.getElementById('reed-' + d);
+      if (slotEl) slotEl.textContent = st.unlocked ? '🔓 Open' : '🔒 Dicht';
+      if (reedEl) reedEl.textContent = st.open ? '📂 Open' : '📁 Dicht';
+    });
+  }
+
+  pollStatus();
+  setInterval(pollStatus, 2000);
+</script>
+{% endblock %}

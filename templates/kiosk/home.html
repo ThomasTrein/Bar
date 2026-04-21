@@ -1,0 +1,63 @@
+{% extends "base_kiosk.html" %}
+{% block title %}KSA Bar{% endblock %}
+{% block content %}
+<div class="home-screen">
+  <div class="home-header">
+    <button class="hamburger-btn" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
+    <div class="home-title">
+      <span class="home-logo">🍺</span>
+      <span>KSA Bar</span>
+    </div>
+    <div class="home-clock" id="clock"></div>
+  </div>
+
+  {# Zij-menu #}
+  <div class="side-menu hidden" id="sideMenu">
+    <div class="side-menu-header">Menu</div>
+    <a href="{{ url_for('kiosk.stock_view') }}" class="menu-item">📦 Stock bekijken</a>
+    <a href="{{ url_for('kiosk.aanvullen') }}" class="menu-item">🔄 Frigo aanvullen</a>
+    <a href="{{ url_for('kiosk.baravond') }}" class="menu-item {% if bar_actief %}menu-item-active{% endif %}">
+      🎉 Baravond modus {% if bar_actief %}<span class="badge-live">ACTIEF</span>{% endif %}
+    </a>
+    <a href="{{ url_for('kiosk.winkelaankoop') }}" class="menu-item">🛒 Winkelaankoop</a>
+    <a href="{{ url_for('kiosk.de_bond') }}" class="menu-item">🏠 De Bond</a>
+    <hr class="menu-divider">
+    <a href="{{ url_for('admin.login') }}" class="menu-item menu-item-admin">⚙️ Admin</a>
+    <button class="menu-close" onclick="toggleMenu()">✕ Sluiten</button>
+  </div>
+  <div class="menu-overlay hidden" id="menuOverlay" onclick="toggleMenu()"></div>
+
+  {# Hoofd actie knop #}
+  <div class="home-body">
+    {% if bar_actief %}
+    <div class="mode-banner">🎉 Baravond modus is actief</div>
+    {% endif %}
+    {% if refill_actief %}
+    <div class="mode-banner mode-banner-refill">🔄 Aanvulmodus is actief</div>
+    {% endif %}
+
+    <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-main-order">
+      <span class="btn-main-icon">🛍️</span>
+      <span>Bestelling plaatsen</span>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Klok
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('nl-BE', {hour:'2-digit', minute:'2-digit'});
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  function toggleMenu() {
+    document.getElementById('sideMenu').classList.toggle('hidden');
+    document.getElementById('menuOverlay').classList.toggle('hidden');
+  }
+</script>
+{% endblock %}

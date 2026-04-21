@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>{% block title %}KSA Bar{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kiosk.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="dark">
+
+  {# Screensaver overlay #}
+  <div id="screensaver" class="screensaver hidden">
+    <div class="ss-content">
+      <div class="ss-logo">🍺</div>
+      <div class="ss-clock" id="ss-clock"></div>
+      <div class="ss-hint">Tik om te beginnen</div>
+    </div>
+  </div>
+
+  <div id="app">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="{{ url_for('static', filename='js/kiosk.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

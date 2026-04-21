@@ -1,0 +1,59 @@
+{% extends "base_kiosk.html" %}
+{% block title %}De Bond — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>🏠 De Bond</h1>
+  </div>
+  <p class="page-intro">Producten voor de KSA zelf (puur verlies).</p>
+
+  {# Categorie tabs #}
+  <div class="cat-tabs">
+    {% for cat in categorieen %}
+    <button class="cat-tab {% if loop.first %}active{% endif %}"
+            onclick="showCat({{ cat.id }}, this)">{{ cat.naam }}</button>
+    {% endfor %}
+  </div>
+
+  <form method="POST" action="{{ url_for('kiosk.de_bond_bevestigen') }}">
+    {% for cat in categorieen %}
+    <div class="product-grid cat-panel" id="cat-{{ cat.id }}"
+         style="{% if not loop.first %}display:none{% endif %}">
+      {% for p in producten if p.categorie_id == cat.id %}
+      <div class="product-kaart {% if p.stock <= 0 %}product-leeg{% endif %}">
+        <div class="product-naam">{{ p.naam }}</div>
+        {% if p.stock <= 0 %}<div class="stock-leeg-label">NIET IN STOCK</div>{% endif %}
+        <div class="qty-row">
+          <button type="button" class="qty-btn" onclick="changeQty(this,-1)">−</button>
+          <input type="number" name="qty_{{ p.id }}" value="0"
+                 min="0" max="99" class="qty-input">
+          <button type="button" class="qty-btn" onclick="changeQty(this,1)">+</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    <div class="bottom-bar">
+      <button type="submit" class="btn-confirm">✅ Bevestigen & openen</button>
+      <a href="{{ url_for('kiosk.home') }}" class="btn-danger">✕ Annuleren</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function showCat(id, btn) {
+    document.querySelectorAll('.cat-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('cat-' + id).style.display = '';
+    btn.classList.add('active');
+  }
+  function changeQty(btn, delta) {
+    const inp = btn.parentElement.querySelector('.qty-input');
+    inp.value = Math.max(0, Math.min(99, parseInt(inp.value) + delta));
+  }
+</script>
+{% endblock %}

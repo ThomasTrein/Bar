@@ -1,0 +1,48 @@
+{% extends "base_admin.html" %}
+{% block title %}Bestelling #{{ order.id }} — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Bestelling #{{ order.id }}</h1>
+  <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Terug</a>
+</div>
+
+<div class="detail-info">
+  <p><strong>Tijdstip:</strong> {{ order.tijdstip }}</p>
+  <p><strong>Type:</strong> {{ order.type }}</p>
+  <p><strong>Status:</strong> {% if order.geannuleerd %}Geannuleerd{% else %}Actief{% endif %}</p>
+  {% if order.video_path %}
+  <p><strong>Video:</strong>
+    <a href="{{ url_for('serve_video', pad=order.video_path) }}" target="_blank">Bekijken</a>
+  </p>
+  {% endif %}
+</div>
+
+{% if not order.geannuleerd %}
+<h2>Items bewerken</h2>
+<form method="POST" action="{{ url_for('admin.bestelling_bewerken', oid=order.id) }}">
+  <table class="admin-table">
+    <thead><tr><th>Persoon</th><th>Product</th><th>Hoeveelheid</th><th>Prijs/stuk</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.bijnaam or item.voornaam }}</td>
+        <td>{{ item.product_naam }}</td>
+        <td>
+          <input type="number" name="qty_{{ item.id }}" value="{{ item.hoeveelheid }}"
+                 min="0" class="form-input short-input">
+        </td>
+        <td>€{{ "%.2f"|format(item.verkoop_prijs_snapshot) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit" class="btn-primary">Opslaan</button>
+</form>
+
+<div class="section-divider"></div>
+<form method="POST" action="{{ url_for('admin.bestelling_verwijderen', oid=order.id) }}"
+      onsubmit="return confirm('Bestelling annuleren en stock herstellen?')">
+  <button class="btn-danger">Bestelling annuleren</button>
+</form>
+{% endif %}
+{% endblock %}

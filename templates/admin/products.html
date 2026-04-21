@@ -1,0 +1,216 @@
+{% extends "base_admin.html" %}
+{% block title %}Producten — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🥤 Productbeheer</h1>
+  <button class="btn-primary" onclick="toggleForm('nieuw-form')">➕ Nieuw product</button>
+</div>
+
+{# Nieuw product formulier #}
+<div id="nieuw-form" class="collapsible hidden">
+  <h2>Nieuw product toevoegen</h2>
+  <form method="POST" action="{{ url_for('admin.product_nieuw') }}" enctype="multipart/form-data"
+        class="admin-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Naam *</label>
+        <input type="text" name="naam" required class="form-input">
+      </div>
+      <div class="form-group">
+        <label>Categorie *</label>
+        <select name="categorie_id" class="form-input">
+          {% for c in categorieen %}<option value="{{ c.id }}">{{ c.naam }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Verkoopprijs (€)</label>
+        <input type="number" name="verkoop_prijs" step="0.01" min="0" class="form-input" value="0">
+      </div>
+      <div class="form-group">
+        <label>Aankoopprijs (€)</label>
+        <input type="number" name="aankoop_prijs" step="0.01" min="0" class="form-input" value="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Deuren (meerdere selectie mogelijk)</label>
+      <div class="checkbox-row">
+        {% for d in [1,2,3] %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="deuren" value="{{ d }}"> Deur {{ d }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Foto</label>
+      <input type="file" name="foto" accept="image/*" class="form-file-input">
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="actief" checked> Actief
+      </label>
+    </div>
+    <button type="submit" class="btn-primary">Opslaan</button>
+  </form>
+</div>
+
+{# Categorie filter #}
+<div class="filter-bar">
+  <a href="{{ url_for('admin.producten') }}" class="filter-btn {% if not request.args.get('cat') %}active{% endif %}">Alle</a>
+  {% for c in categorieen %}
+  <a href="{{ url_for('admin.producten', cat=c.id) }}"
+     class="filter-btn {% if request.args.get('cat') == c.id|string %}active{% endif %}">{{ c.naam }}</a>
+  {% endfor %}
+</div>
+
+{# Productenlijst #}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Foto</th><th>Naam</th><th>Categorie</th><th>Verkoop</th>
+      <th>Aankoop</th><th>Stock</th><th>Deuren</th><th>Actief</th><th>Acties</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in producten %}
+    <tr class="{% if not p.actief %}row-inactive{% endif %} {% if (p.stock or 0) <= 0 %}row-warning{% endif %}">
+      <td>
+        {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}"
+             class="table-thumb" alt="">{% else %}—{% endif %}
+      </td>
+      <td>{{ p.naam }}</td>
+      <td>{{ p.cat_naam }}</td>
+      <td>€{{ "%.2f"|format(p.verkoop_prijs) }}</td>
+      <td>€{{ "%.2f"|format(p.aankoop_prijs) }}</td>
+      <td class="{% if (p.stock or 0) <= 0 %}text-danger{% endif %}">{{ p.stock or 0 }}</td>
+      <td>{{ p.deuren or '—' }}</td>
+      <td>{% if p.actief %}✅{% else %}❌{% endif %}</td>
+      <td class="action-cell">
+        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">✏️</button>
+        <form method="POST" action="{{ url_for('admin.product_verwijderen', pid=p.id) }}"
+              style="display:inline"
+              onsubmit="return confirm('Product verwijderen?')">
+          <button class="btn-sm btn-danger">🗑️</button>
+        </form>
+      </td>
+    </tr>
+    {# Inline edit row #}
+    <tr id="edit-{{ p.id }}" class="edit-row hidden">
+      <td colspan="9">
+        <form method="POST" action="{{ url_for('admin.product_bewerken', pid=p.id) }}"
+              enctype="multipart/form-data" class="admin-form inline-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Naam</label>
+              <input type="text" name="naam" value="{{ p.naam }}" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Categorie</label>
+              <select name="categorie_id" class="form-input">
+                {% for c in categorieen %}
+                <option value="{{ c.id }}" {% if c.id == p.categorie_id %}selected{% endif %}>
+                  {{ c.naam }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Verkoop €</label>
+              <input type="number" name="verkoop_prijs" value="{{ p.verkoop_prijs }}"
+                     step="0.01" min="0" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Aankoop €</label>
+              <input type="number" name="aankoop_prijs" value="{{ p.aankoop_prijs or 0 }}"
+                     step="0.01" min="0" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Stock</label>
+              <input type="number" name="stock" value="{{ p.stock or 0 }}"
+                     min="0" class="form-input">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Deuren</label>
+            <div class="checkbox-row">
+              {% for d in [1,2,3] %}
+              <label class="checkbox-label">
+                <input type="checkbox" name="deuren" value="{{ d }}"
+                       {% if p.deuren and (d|string) in p.deuren.split(',') %}checked{% endif %}> Deur {{ d }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nieuwe foto</label>
+              <input type="file" name="foto" accept="image/*" class="form-file-input">
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" name="actief" {% if p.actief %}checked{% endif %}> Actief
+              </label>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary">Opslaan</button>
+          <button type="button" class="btn-secondary" onclick="toggleEditRow({{ p.id }})">Annuleren</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{# Categorieën beheer #}
+<div class="section-divider"></div>
+<h2>📂 Categorieën</h2>
+<table class="admin-table">
+  <thead><tr><th>Naam</th><th>Volgorde</th><th>Acties</th></tr></thead>
+  <tbody>
+    {% for c in categorieen %}
+    <tr>
+      <td>{{ c.naam }}</td>
+      <td>{{ c.volgorde }}</td>
+      <td>
+        <button class="btn-sm btn-secondary" onclick="toggleEditCat({{ c.id }})">✏️</button>
+        <form method="POST" action="{{ url_for('admin.categorie_verwijderen', cid=c.id) }}"
+              style="display:inline" onsubmit="return confirm('Categorie verwijderen?')">
+          <button class="btn-sm btn-danger">🗑️</button>
+        </form>
+      </td>
+    </tr>
+    <tr id="edit-cat-{{ c.id }}" class="edit-row hidden">
+      <td colspan="3">
+        <form method="POST" action="{{ url_for('admin.categorie_bewerken', cid=c.id) }}" class="inline-form">
+          <input type="text" name="naam" value="{{ c.naam }}" class="form-input">
+          <input type="number" name="volgorde" value="{{ c.volgorde }}" class="form-input short-input">
+          <button type="submit" class="btn-primary btn-sm">Opslaan</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<form method="POST" action="{{ url_for('admin.categorie_nieuw') }}" class="inline-form">
+  <input type="text" name="naam" placeholder="Nieuwe categorie…" class="form-input" required>
+  <button type="submit" class="btn-primary">➕ Toevoegen</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleEditRow(id) {
+    const row = document.getElementById('edit-' + id);
+    row.classList.toggle('hidden');
+  }
+  function toggleEditCat(id) {
+    const row = document.getElementById('edit-cat-' + id);
+    row.classList.toggle('hidden');
+  }
+  function toggleForm(id) {
+    document.getElementById(id).classList.toggle('hidden');
+  }
+</script>
+{% endblock %}

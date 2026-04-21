@@ -1,0 +1,93 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Frigo aanvullen — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>🔄 Frigo aanvullen</h1>
+  </div>
+
+  {% if not actief_id %}
+  <p class="page-intro">Selecteer jouw naam om het aanvullen te starten.</p>
+  <div class="personen-grid">
+    {% for p in personen %}
+    <form method="POST" action="{{ url_for('kiosk.aanvullen_start') }}">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart">
+        <div class="persoon-foto">
+          {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
+          {% else %}<span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>{% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="mode-banner mode-banner-refill">🔄 Aanvulmodus actief — deuren staan open</div>
+  <p class="page-intro">Vink aan in welke deuren elk product ligt. Een product mag in meerdere deuren tegelijk staan.</p>
+
+  <div class="refill-table-wrap">
+    <table class="refill-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="deur-col">Deur 1</th>
+          <th class="deur-col">Deur 2</th>
+          <th class="deur-col">Deur 3</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in producten %}
+        <tr>
+          <td class="refill-prod-naam">{{ p.naam }}</td>
+          {% for d in [1, 2, 3] %}
+          <td class="deur-col">
+            <input type="checkbox" class="deur-check"
+                   data-product="{{ p.id }}" data-deur="{{ d }}"
+                   {% if p.deuren and d|string in p.deuren.split(',') %}checked{% endif %}>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-primary" onclick="saveDoors()">💾 Opslaan & sluiten</button>
+    <button class="btn-danger" onclick="stopAanvullen()">⛔ Stoppen zonder opslaan</button>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function saveDoors() {
+    const map = {};
+    document.querySelectorAll('.deur-check').forEach(cb => {
+      const pid = cb.dataset.product;
+      const d   = parseInt(cb.dataset.deur);
+      if (!map[pid]) map[pid] = [];
+      if (cb.checked) map[pid].push(d);
+    });
+    await fetch('/aanvullen/stop', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(map)
+    });
+    window.location = '/';
+  }
+  async function stopAanvullen() {
+    if (!confirm('Stoppen zonder wijzigingen op te slaan?')) return;
+    await fetch('/aanvullen/stop', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: '{}'
+    });
+    window.location = '/';
+  }
+</script>
+{% endblock %}

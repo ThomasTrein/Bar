@@ -1,0 +1,40 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Stock — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>📦 Stockoverzicht</h1>
+  </div>
+
+  {% for cat in categorieen %}
+  {% set cat_prods = producten | selectattr('categorie_id', 'eq', cat.id) | list %}
+  {% if cat_prods %}
+  <div class="stock-categorie">
+    <h2 class="stock-cat-titel">{{ cat.naam }}</h2>
+    <div class="stock-grid">
+      {% for p in cat_prods %}
+      <div class="stock-kaart {% if p.stock <= 0 %}stock-leeg{% endif %}">
+        <div class="stock-foto">
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+          {% else %}
+            <span>🥤</span>
+          {% endif %}
+        </div>
+        <div class="stock-naam">{{ p.naam }}</div>
+        <div class="stock-qty {% if p.stock <= 0 %}qty-leeg{% endif %}">
+          {% if p.stock <= 0 %}
+            <span class="stock-leeg-label">NIET IN STOCK</span>
+          {% else %}
+            {{ p.stock }} stuks
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}

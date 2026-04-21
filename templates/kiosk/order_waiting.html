@@ -1,0 +1,72 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Wachten — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen waiting-screen">
+  <div class="waiting-content">
+    <div class="waiting-icon" id="waitIcon">🔓</div>
+    <h1 id="waitTitle">Frigo wordt ontgrendeld…</h1>
+    <p id="waitMsg">Pak je drank en sluit de deur.</p>
+
+    <div class="deur-status-grid">
+      {% for d in order.deuren_nodig %}
+      <div class="deur-status-kaart" id="deur-{{ d }}">
+        <div class="deur-nr">Deur {{ d }}</div>
+        <div class="deur-icon">🔓</div>
+        <div class="deur-label">Wachten…</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="klaar-msg" class="klaar-msg hidden">
+      <div class="klaar-icon">✅</div>
+      <div>Bedankt! Bestelling geregistreerd.</div>
+      <div style="display:flex;gap:16px;justify-content:center;margin-top:16px;flex-wrap:wrap">
+        <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-primary">🛒 Nieuwe bestelling</a>
+        <a href="{{ url_for('kiosk.home') }}" class="btn-secondary">← Terug naar home</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const deurenNodig = {{ order.deuren_nodig | tojson }};
+
+  async function pollStatus() {
+    try {
+      const r = await fetch('/api/deur-status');
+      const data = await r.json();
+
+      deurenNodig.forEach(d => {
+        const kaart = document.getElementById('deur-' + d);
+        if (!kaart) return;
+        const st = data.deuren[String(d)] || {};
+        const icon  = kaart.querySelector('.deur-icon');
+        const label = kaart.querySelector('.deur-label');
+        if (!st.unlocked) {
+          icon.textContent  = '🔒';
+          label.textContent = 'Gesloten';
+          kaart.classList.add('deur-klaar');
+        } else if (st.open) {
+          icon.textContent  = '📂';
+          label.textContent = 'Open';
+        } else {
+          icon.textContent  = '🔓';
+          label.textContent = 'Ontgrendeld';
+        }
+      });
+
+      if (data.alle_klaar) {
+        document.getElementById('klaar-msg').classList.remove('hidden');
+        document.getElementById('waitTitle').textContent = 'Alles klaar!';
+        document.getElementById('waitMsg').style.display = 'none';
+        document.getElementById('waitIcon').textContent = '✅';
+        return;
+      }
+    } catch(e) {}
+    setTimeout(pollStatus, 1000);
+  }
+  pollStatus();
+</script>
+{% endblock %}
