@@ -30,10 +30,10 @@
   {# Hoofd actie knop #}
   <div class="home-body">
     {% if bar_actief %}
-    <div class="mode-banner">🎉 Baravond modus is actief</div>
+    <a href="{{ url_for('kiosk.baravond') }}" class="mode-banner mode-banner-link">🎉 Baravond modus is actief</a>
     {% endif %}
     {% if refill_actief %}
-    <div class="mode-banner mode-banner-refill">🔄 Aanvulmodus is actief</div>
+    <a href="{{ url_for('kiosk.aanvullen') }}" class="mode-banner mode-banner-refill mode-banner-link">🔄 Aanvulmodus is actief</a>
     {% endif %}
 
     <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-main-order">

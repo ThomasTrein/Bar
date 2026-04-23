@@ -108,6 +108,31 @@ html, body {
   border-radius: var(--radius); width: 100%; max-width: 500px;
 }
 .mode-banner-refill { background: #1565c0; color: #fff; }
+.mode-banner-link {
+  display: block; text-decoration: none;
+  transition: opacity .15s, transform .1s;
+}
+.mode-banner-link:active { opacity: .85; transform: scale(.98); }
+
+/* ---- Flash berichten ---- */
+.flash-container {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 9000; display: flex; flex-direction: column; gap: 8px;
+  width: calc(100% - 32px); max-width: 500px;
+}
+.flash {
+  padding: 16px 20px; border-radius: var(--radius);
+  font-size: 18px; font-weight: 600; text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  animation: flash-in .2s ease;
+}
+.flash-error   { background: var(--danger); color: #fff; }
+.flash-success { background: var(--success); color: #fff; }
+.flash-info    { background: #1565c0; color: #fff; }
+@keyframes flash-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ---- Page layout ---- */
 .page-screen { display: flex; flex-direction: column; min-height: 100vh; }
@@ -177,6 +202,7 @@ html, body {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 12px; padding: 16px;
   overflow-y: auto; flex: 1;
+  align-items: start;
 }
 .persoon-kaart {
   background: var(--surface2); border: 1px solid var(--border);
@@ -185,6 +211,7 @@ html, body {
   cursor: pointer; text-align: center;
   transition: background .1s;
   width: 100%;
+  color: var(--text);
 }
 .persoon-kaart:active { background: var(--surface); }
 .persoon-foto {

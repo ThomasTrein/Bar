@@ -1,6 +1,6 @@
 """Kiosk routes voor KSA Bar."""
 import os, json, uuid
-from flask import Blueprint, render_template, request, redirect, url_for, session
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from database.db import get_db, query, execute, add_log, get_setting
 from hardware.gpio_controller import get_fridge_controller
 from hardware.camera import start_recording, stop_recording
@@ -320,6 +320,9 @@ def baravond_reset_naam():
 
 @kiosk_bp.route('/baravond/start', methods=['POST'])
 def baravond_start():
+    if session.get('active_refill'):
+        flash('Aanvulmodus is actief. Stop eerst de aanvulmodus voor je baravond start.', 'error')
+        return redirect(url_for('kiosk.baravond'))
     pid = request.form.get('person_id', type=int)
     inv = {k.replace('product_', ''): int(v or 0)
            for k, v in request.form.items() if k.startswith('product_')}
@@ -380,6 +383,9 @@ def aanvullen():
 
 @kiosk_bp.route('/aanvullen/start', methods=['POST'])
 def aanvullen_start():
+    if session.get('active_bar_evening'):
+        flash('Baravond is actief. Stop eerst de baravond voor je aanvulmodus start.', 'error')
+        return redirect(url_for('kiosk.aanvullen'))
     pid = request.form.get('person_id', type=int)
     rec = start_recording('aanvullen')
     refill_id = execute(
