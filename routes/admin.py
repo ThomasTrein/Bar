@@ -100,14 +100,13 @@ def product_nieuw():
     naam     = request.form.get('naam', '').strip()
     cat_id   = request.form.get('categorie_id', type=int)
     prijs    = request.form.get('verkoop_prijs', 0.0, type=float)
-    aankoop  = request.form.get('aankoop_prijs', 0.0, type=float)
     deuren   = request.form.getlist('deuren')
 
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products')
 
     pid = execute(
-        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, foto_path) VALUES (?,?,?,?,?)",
-        (naam, cat_id, prijs, aankoop, foto_path)
+        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, foto_path) VALUES (?,?,?,0,?)",
+        (naam, cat_id, prijs, foto_path)
     )
     for d in deuren:
         try:
@@ -121,19 +120,20 @@ def product_nieuw():
 @admin_bp.route('/producten/<int:pid>/bewerken', methods=['POST'])
 @login_required
 def product_bewerken(pid):
-    old = query("SELECT foto_path FROM products WHERE id=?", (pid,), one=True)
+    old = query("SELECT foto_path, stock, aankoop_prijs FROM products WHERE id=?", (pid,), one=True)
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products') \
                 or (old['foto_path'] if old else '')
     naam  = request.form.get('naam', '').strip()
     cat   = request.form.get('categorie_id', type=int)
     prijs = request.form.get('verkoop_prijs', type=float)
-    aankoop = request.form.get('aankoop_prijs', type=float) or 0.0
     actief= 1 if request.form.get('actief') else 0
-    stock = request.form.get('stock', type=int)
     deuren= request.form.getlist('deuren')
+    # Aankoopprijs en stock worden NIET aangepast via admin productenbeheer
+    huidige_stock    = old['stock']    if old else 0
+    huidige_aankoop  = old['aankoop_prijs'] if old else 0
 
     execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=? WHERE id=?",
-            (naam, cat, prijs, aankoop, actief, stock, foto_path, pid))
+            (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, pid))
     execute("DELETE FROM product_doors WHERE product_id=?", (pid,))
     for d in deuren:
         try:
@@ -192,6 +192,9 @@ def persoon_toggle(pid):
 @login_required
 def categorie_verwijderen(cid):
     c = query("SELECT naam FROM categories WHERE id=?", (cid,), one=True)
+    # Ontkoppel producten van deze categorie voor verwijdering
+    execute("UPDATE products SET categorie_id=NULL WHERE categorie_id=?", (cid,))
+    execute("DELETE FROM person_blocked_categories WHERE category_id=?", (cid,))
     execute("DELETE FROM categories WHERE id=?", (cid,))
     add_log('admin', f"Categorie verwijderd: {c['naam'] if c else cid}")
     return redirect(url_for('admin.producten'))
@@ -251,6 +254,48 @@ def persoon_verwijderen(pid):
     execute("UPDATE persons SET actief=0 WHERE id=?", (pid,))
     add_log('admin', f"Persoon #{pid} gedeactiveerd")
     return redirect(url_for('admin.personen'))
+
+
+@admin_bp.route('/personen/<int:pid>/beperkingen', methods=['GET', 'POST'])
+@login_required
+def persoon_beperkingen(pid):
+    p = query("SELECT * FROM persons WHERE id=?", (pid,), one=True)
+    if not p or p['is_bond']:
+        return redirect(url_for('admin.personen'))
+
+    if request.method == 'POST':
+        # Geblokkeerde categorieën
+        execute("DELETE FROM person_blocked_categories WHERE person_id=?", (pid,))
+        for cid in request.form.getlist('blocked_cats'):
+            try:
+                execute("INSERT INTO person_blocked_categories (person_id,category_id) VALUES (?,?)",
+                        (pid, int(cid)))
+            except Exception:
+                pass
+        # Geblokkeerde producten
+        execute("DELETE FROM person_blocked_products WHERE person_id=?", (pid,))
+        for prod_id in request.form.getlist('blocked_prods'):
+            try:
+                execute("INSERT INTO person_blocked_products (person_id,product_id) VALUES (?,?)",
+                        (pid, int(prod_id)))
+            except Exception:
+                pass
+        add_log('admin', f"Beperkingen bijgewerkt voor persoon #{pid}")
+        return redirect(url_for('admin.persoon_beperkingen', pid=pid))
+
+    cats  = query("SELECT * FROM categories ORDER BY volgorde")
+    prods = query(
+        """SELECT p.*, c.naam as cat_naam FROM products p
+           LEFT JOIN categories c ON p.categorie_id=c.id
+           WHERE p.actief=1 ORDER BY c.volgorde, p.naam"""
+    )
+    blocked_cats  = {r['category_id'] for r in
+                     query("SELECT category_id FROM person_blocked_categories WHERE person_id=?", (pid,))}
+    blocked_prods = {r['product_id'] for r in
+                     query("SELECT product_id FROM person_blocked_products WHERE person_id=?", (pid,))}
+    return render_template('admin/person_restrictions.html',
+                           persoon=p, categorieen=cats, producten=prods,
+                           blocked_cats=blocked_cats, blocked_prods=blocked_prods)
 
 
 # ─── Bestellingen ─────────────────────────────────────────────────────────────

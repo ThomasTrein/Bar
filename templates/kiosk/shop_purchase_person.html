@@ -1,0 +1,26 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Winkelaankoop — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>🛒 Winkelaankoop</h1>
+  </div>
+
+  <h2 style="padding:16px 16px 8px">Wie heeft de aankoop gedaan?</h2>
+  <div class="personen-grid" id="personenGrid">
+    {% for p in personen %}
+    <a href="{{ url_for('kiosk.winkelaankoop_producten', pid=p.id) }}" class="persoon-kaart">
+      <div class="persoon-foto">
+        {% if p.foto_path %}
+          <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+        {% else %}
+          <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+        {% endif %}
+      </div>
+      <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

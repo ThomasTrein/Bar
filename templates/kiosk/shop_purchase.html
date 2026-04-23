@@ -3,24 +3,12 @@
 {% block content %}
 <div class="page-screen">
   <div class="page-header">
-    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
-    <h1>Winkelaankoop registreren</h1>
+    <a href="{{ url_for('kiosk.winkelaankoop') }}" class="btn-back">← Terug</a>
+    <h1>🛒 Winkelaankoop — {{ persoon.bijnaam or persoon.voornaam }}</h1>
   </div>
 
   <form method="POST" action="{{ url_for('kiosk.winkelaankoop_bevestigen') }}" class="shop-form">
-    <h2 style="padding:16px 16px 8px">Wie heeft de aankoop gedaan?</h2>
-    <div class="personen-grid" style="max-height:300px;overflow-y:auto">
-      {% for p in personen %}
-      <label class="persoon-kaart persoon-radio-label">
-        <input type="radio" name="person_id" value="{{ p.id }}" required style="display:none">
-        <div class="persoon-foto">
-          {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
-          {% else %}<span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>{% endif %}
-        </div>
-        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
-      </label>
-      {% endfor %}
-    </div>
+    <input type="hidden" name="person_id" value="{{ persoon.id }}">
 
     <h2 style="padding:16px 16px 8px">Welke producten zijn aangekocht?</h2>
     {% for p in producten %}
@@ -29,7 +17,7 @@
       <label class="shop-label">Aantal</label>
       <input type="number" name="qty_{{ p.id }}" value="0" min="0" class="shop-qty">
       <label class="shop-label">Prijs/stuk (€)</label>
-      <input type="number" name="prijs_{{ p.id }}" value="{{ '%.2f'|format(p.aankoop_prijs or 0) }}"
+      <input type="number" name="prijs_{{ p.id }}" value="0.00"
              min="0" step="0.01" class="shop-prijs">
     </div>
     {% endfor %}
@@ -40,16 +28,4 @@
     </div>
   </form>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  // Highlight geselecteerde persoon
-  document.querySelectorAll('.persoon-radio-label input[type=radio]').forEach(r => {
-    r.addEventListener('change', () => {
-      document.querySelectorAll('.persoon-radio-label').forEach(l => l.classList.remove('selected'));
-      r.closest('.persoon-radio-label').classList.add('selected');
-    });
-  });
-</script>
 {% endblock %}

@@ -29,34 +29,48 @@
   {% if mijn_items %}
   <div class="mijn-items-balk">
     <span class="mijn-items-titel">In winkelmandje:</span>
-    {%- set ns = namespace(i=0) %}
     {% for item in order.regels %}
       {% if item.person_naam == order.current_person_naam %}
       <span class="mijn-item-tag">
         {{ item.hoeveelheid }}× {{ item.product_naam }}
-        <button type="button" class="mijn-item-del" onclick="verwijderItem({{ ns.i }})">✕</button>
+        <button type="button" class="mijn-item-del"
+                onclick="verwijderItem({{ item.person_id }}, {{ item.product_id }})">✕</button>
       </span>
       {% endif %}
-      {%- set ns.i = ns.i + 1 %}
     {% endfor %}
   </div>
   {% endif %}
 
-  {# Categorie tabs #}
+  {# Categorie tabs — sla geblokkeerde categorieën over #}
   <div class="cat-tabs">
+    {% set ns = namespace(first_visible=True) %}
     {% for cat in categorieen %}
-    <button class="cat-tab {% if loop.first %}active{% endif %}"
-            onclick="showCat({{ cat.id }}, this)">
+    {% if cat.id not in blocked_cat_ids %}
+    {% set cat_prods_zichtbaar = producten | selectattr('categorie_id', 'equalto', cat.id)
+                                           | rejectattr('id', 'in', blocked_prod_ids) | list %}
+    {% if cat_prods_zichtbaar %}
+    <button class="cat-tab {% if ns.first_visible %}active{% endif %}"
+            onclick="showCat({{ cat.id }}, this)"
+            data-cat="{{ cat.id }}">
       {{ cat.naam }}
     </button>
+    {% set ns.first_visible = False %}
+    {% endif %}
+    {% endif %}
     {% endfor %}
   </div>
 
-  {# Producten per categorie #}
+  {# Producten per categorie — geblokkeerde overgeslagen #}
+  {% set ns2 = namespace(first_visible=True) %}
   {% for cat in categorieen %}
+  {% if cat.id not in blocked_cat_ids %}
+  {% set cat_prods_zichtbaar = producten | selectattr('categorie_id', 'equalto', cat.id)
+                                         | rejectattr('id', 'in', blocked_prod_ids) | list %}
+  {% if cat_prods_zichtbaar %}
   <div class="product-grid cat-panel" id="cat-{{ cat.id }}"
-       style="{% if not loop.first %}display:none{% endif %}">
-    {% for p in producten if p.categorie_id == cat.id %}
+       style="{% if not ns2.first_visible %}display:none{% endif %}">
+    {% set ns2.first_visible = False %}
+    {% for p in cat_prods_zichtbaar %}
     <div class="product-kaart {% if (p.stock or 0) <= 0 %}product-leeg{% endif %}">
       <div class="product-foto">
         {% if p.foto_path %}
@@ -94,6 +108,8 @@
     </div>
     {% endfor %}
   </div>
+  {% endif %}
+  {% endif %}
   {% endfor %}
 
   {# Onderbalk acties #}
@@ -129,11 +145,11 @@
     const inp = btn.parentElement.querySelector('.qty-input');
     inp.value = Math.max(1, Math.min(99, parseInt(inp.value) + delta));
   }
-  async function verwijderItem(idx) {
+  async function verwijderItem(personId, productId) {
     const r = await fetch('/api/bestelling/item-verwijderen', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({index: idx})
+      body: JSON.stringify({person_id: personId, product_id: productId})
     });
     if ((await r.json()).ok) location.reload();
   }

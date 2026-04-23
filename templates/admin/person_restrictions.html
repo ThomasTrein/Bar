@@ -1,0 +1,70 @@
+{% extends "base_admin.html" %}
+{% block title %}Beperkingen — {{ persoon.bijnaam or persoon.voornaam }} — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🚫 Beperkingen — {{ persoon.bijnaam or persoon.voornaam }}</h1>
+  <a href="{{ url_for('admin.personen') }}" class="btn-secondary">← Terug naar personen</a>
+</div>
+
+<p style="margin-bottom:16px;color:#888">
+  Vink aan welke categorieën of producten deze persoon <strong>niet</strong> mag bestellen.
+  Een geblokkeerde categorie overschrijft individuele producten — alle producten uit die categorie zijn dan geblokkeerd.
+</p>
+
+<form method="POST">
+  {% for cat in categorieen %}
+  {% set cat_blocked = cat.id in blocked_cats %}
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:1.05em">
+        <input type="checkbox" name="blocked_cats" value="{{ cat.id }}"
+               {% if cat_blocked %}checked{% endif %}
+               onchange="toggleCatBlock({{ cat.id }}, this.checked)">
+        🚫 Hele categorie blokkeren: <span style="color:#e74c3c">{{ cat.naam }}</span>
+      </label>
+    </div>
+    <div id="prods-cat-{{ cat.id }}" style="{% if cat_blocked %}opacity:0.4;pointer-events:none{% endif %}">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;padding-left:16px">
+        {% for p in producten if p.categorie_id == cat.id %}
+        <label style="display:flex;align-items:center;gap:6px;background:#f5f5f5;padding:6px 10px;border-radius:8px;cursor:pointer">
+          <input type="checkbox" name="blocked_prods" value="{{ p.id }}"
+                 {% if p.id in blocked_prods %}checked{% endif %}>
+          {{ p.naam }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {# Producten zonder categorie #}
+  {% set prods_zonder_cat = producten | selectattr('categorie_id', 'none') | list %}
+  {% if prods_zonder_cat %}
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-weight:600;margin-bottom:8px">Zonder categorie</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding-left:16px">
+      {% for p in prods_zonder_cat %}
+      <label style="display:flex;align-items:center;gap:6px;background:#f5f5f5;padding:6px 10px;border-radius:8px;cursor:pointer">
+        <input type="checkbox" name="blocked_prods" value="{{ p.id }}"
+               {% if p.id in blocked_prods %}checked{% endif %}>
+        {{ p.naam }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <button type="submit" class="btn-primary" style="margin-top:8px">💾 Opslaan</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleCatBlock(catId, blocked) {
+    const container = document.getElementById('prods-cat-' + catId);
+    if (!container) return;
+    container.style.opacity      = blocked ? '0.4' : '1';
+    container.style.pointerEvents = blocked ? 'none' : '';
+  }
+</script>
+{% endblock %}

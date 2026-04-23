@@ -167,11 +167,25 @@ def init_db():
     conn.commit()
 
     # Migraties voor bestaande databases
-    try:
-        conn.execute("ALTER TABLE products ADD COLUMN aankoop_prijs REAL DEFAULT 0")
-        conn.commit()
-    except Exception:
-        pass  # Kolom bestaat al
+    migrations = [
+        "ALTER TABLE products ADD COLUMN aankoop_prijs REAL DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS person_blocked_products (
+            person_id  INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+            PRIMARY KEY (person_id, product_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS person_blocked_categories (
+            person_id   INTEGER REFERENCES persons(id) ON DELETE CASCADE,
+            category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+            PRIMARY KEY (person_id, category_id)
+        )""",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # Kolom/tabel bestaat al
 
     conn.close()
     print("[OK] Database geinitialiseerd.")

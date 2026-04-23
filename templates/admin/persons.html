@@ -49,6 +49,7 @@
       <td class="action-cell">
         {% if not p.is_bond %}
         <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">✏️</button>
+        <a href="{{ url_for('admin.persoon_beperkingen', pid=p.id) }}" class="btn-sm btn-warning">🚫 Beperkingen</a>
         <form method="POST" action="{{ url_for('admin.persoon_toggle', pid=p.id) }}" style="display:inline">
           <button class="btn-sm {% if p.actief %}btn-warning{% else %}btn-primary{% endif %}">
             {% if p.actief %}Deactiveren{% else %}Activeren{% endif %}
@@ -56,7 +57,7 @@
         </form>
         <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
               style="display:inline"
-              onsubmit="return confirm('Persoon permanent verwijderen?')">
+              onsubmit="return confirm('Persoon deactiveren?')">
           <button class="btn-sm btn-danger">🗑️</button>
         </form>
         {% endif %}

@@ -138,9 +138,22 @@ def bestelling_producten():
         return redirect(url_for('kiosk.home'))
     cats, prods = alle_producten_per_categorie()
     toon_prijs  = get_setting('prijs_tonen', 'false') == 'true'
+
+    # Beperkingen voor huidige persoon ophalen
+    pid = order.get('current_person_id')
+    blocked_prod_ids = set()
+    blocked_cat_ids  = set()
+    if pid:
+        blocked_prod_ids = {r['product_id'] for r in
+            query("SELECT product_id FROM person_blocked_products WHERE person_id=?", (pid,))}
+        blocked_cat_ids = {r['category_id'] for r in
+            query("SELECT category_id FROM person_blocked_categories WHERE person_id=?", (pid,))}
+
     return render_template('kiosk/order_products.html',
                            order=order, categorieen=cats, producten=prods,
-                           toon_prijs=toon_prijs)
+                           toon_prijs=toon_prijs,
+                           blocked_prod_ids=blocked_prod_ids,
+                           blocked_cat_ids=blocked_cat_ids)
 
 
 @kiosk_bp.route('/bestelling/producten', methods=['POST'])
@@ -473,15 +486,26 @@ def de_bond_bevestigen():
 
 @kiosk_bp.route('/winkelaankoop')
 def winkelaankoop():
-    return render_template('kiosk/shop_purchase.html',
-                           personen=alle_personen(),
-                           producten=query("SELECT * FROM products WHERE actief=1 ORDER BY naam"))
+    """Stap 1: persoon selecteren."""
+    return render_template('kiosk/shop_purchase_person.html', personen=alle_personen())
+
+
+@kiosk_bp.route('/winkelaankoop/<int:pid>')
+def winkelaankoop_producten(pid):
+    """Stap 2: producten invullen voor geselecteerde persoon."""
+    persoon = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
+    if not persoon:
+        return redirect(url_for('kiosk.winkelaankoop'))
+    producten = query("SELECT * FROM products WHERE actief=1 ORDER BY naam")
+    return render_template('kiosk/shop_purchase.html', persoon=persoon, producten=producten)
 
 
 @kiosk_bp.route('/winkelaankoop/bevestigen', methods=['POST'])
 def winkelaankoop_bevestigen():
     from services.fifo import add_batch
     pid = request.form.get('person_id', type=int)
+    if not pid:
+        return redirect(url_for('kiosk.winkelaankoop'))
     aankoop_id = execute("INSERT INTO shop_purchases (person_id) VALUES (?)", (pid,))
 
     n = 0
