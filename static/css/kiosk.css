@@ -203,6 +203,7 @@ html, body {
   gap: 12px; padding: 16px;
   overflow-y: auto; flex: 1;
   align-items: start;
+  align-content: start;
 }
 .persoon-kaart {
   background: var(--surface2); border: 1px solid var(--border);

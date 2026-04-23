@@ -110,8 +110,54 @@ def restore_stock(product_id: int, hoeveelheid: int, aankoop_kost: float = 0.0):
     conn.close()
 
 
+def return_to_oldest_fifo(product_id: int, hoeveelheid: int):
+    """
+    Voeg geretourneerde stock toe aan de oudste FIFO batch zodat die als
+    eerste geconsumeerd wordt (De Bond terugzetten).
+    Als er geen ruimte meer is in bestaande batches, wordt een batch
+    aangemaakt met een zeer oude datum zodat hij als eerste geconsumeerd wordt.
+    """
+    conn = get_db()
+    conn.execute(
+        "UPDATE products SET stock = stock + ? WHERE id = ?",
+        (hoeveelheid, product_id)
+    )
+
+    # Probeer toe te voegen aan oudste batches die nog ruimte hebben
+    batches = conn.execute(
+        """SELECT id, hoeveelheid_origineel, hoeveelheid_resterend
+           FROM fifo_batches
+           WHERE product_id = ? AND hoeveelheid_resterend < hoeveelheid_origineel
+           ORDER BY datum ASC, id ASC""",
+        (product_id,)
+    ).fetchall()
+
+    resterend = hoeveelheid
+    for batch in batches:
+        if resterend <= 0:
+            break
+        ruimte = batch['hoeveelheid_origineel'] - batch['hoeveelheid_resterend']
+        te_herstellen = min(resterend, ruimte)
+        conn.execute(
+            "UPDATE fifo_batches SET hoeveelheid_resterend = hoeveelheid_resterend + ? WHERE id = ?",
+            (te_herstellen, batch['id'])
+        )
+        resterend -= te_herstellen
+
+    # Nog steeds resterende hoeveelheid: nieuwe batch met oudste datum aanmaken
+    if resterend > 0:
+        conn.execute(
+            """INSERT INTO fifo_batches
+               (product_id, aankoop_prijs, hoeveelheid_origineel, hoeveelheid_resterend, datum)
+               VALUES (?, 0, ?, ?, datetime('now', '-2 years'))""",
+            (product_id, resterend, resterend)
+        )
+
+    conn.commit()
+    conn.close()
+
+
 def get_fifo_cost_per_unit(product_id: int) -> float:
-    """Gewogen gemiddelde aankoopprijs op basis van resterend FIFO stock."""
     conn = get_db()
     batches = conn.execute(
         """SELECT aankoop_prijs, hoeveelheid_resterend

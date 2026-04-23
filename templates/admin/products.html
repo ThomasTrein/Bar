@@ -28,6 +28,12 @@
         <label>Verkoopprijs (€)</label>
         <input type="number" name="verkoop_prijs" step="0.01" min="0" class="form-input" value="0">
       </div>
+      <div class="form-group">
+        <label>Bak grootte
+          <span class="text-dim" style="font-size:0.85em">(optioneel, stuks per bak)</span></label>
+        <input type="number" name="bak_grootte" min="1" step="1" placeholder="uitgeschakeld"
+               class="form-input">
+      </div>
     </div>
     <div class="form-group">
       <label>Deuren (meerdere selectie mogelijk)</label>
@@ -116,6 +122,12 @@
               <label>Verkoop €</label>
               <input type="number" name="verkoop_prijs" value="{{ p.verkoop_prijs }}"
                      step="0.01" min="0" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Bak grootte <span class="text-dim" style="font-size:0.85em">(leeg = uit)</span></label>
+              <input type="number" name="bak_grootte"
+                     value="{{ p.bak_grootte if p.bak_grootte else '' }}"
+                     min="1" step="1" placeholder="uitgeschakeld" class="form-input">
             </div>
           </div>
           <div class="form-group">

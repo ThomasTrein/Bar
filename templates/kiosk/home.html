@@ -16,6 +16,7 @@
     <div class="side-menu-header">Menu</div>
     <a href="{{ url_for('kiosk.stock_view') }}" class="menu-item">📦 Stock bekijken</a>
     <a href="{{ url_for('kiosk.aanvullen') }}" class="menu-item">🔄 Frigo aanvullen</a>
+    <a href="{{ url_for('kiosk.bak_bestellen') }}" class="menu-item">🍺 Bak bestellen</a>
     <a href="{{ url_for('kiosk.baravond') }}" class="menu-item {% if bar_actief %}menu-item-active{% endif %}">
       🎉 Baravond modus {% if bar_actief %}<span class="badge-live">ACTIEF</span>{% endif %}
     </a>

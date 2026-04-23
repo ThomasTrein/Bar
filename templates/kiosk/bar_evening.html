@@ -32,6 +32,11 @@
   <p class="page-intro">Vul de huidige stock in (inclusief inactieve producten).</p>
   <form method="POST" action="{{ url_for('kiosk.baravond_start') }}" class="inventaris-form">
     <input type="hidden" name="person_id" value="{{ session_person_id }}">
+    <div class="inv-row">
+      <label class="inv-label">📝 Naam baravond</label>
+      <input type="text" name="naam" placeholder="bijv. Vrijdagavond KSA"
+             class="inv-input" style="flex:2">
+    </div>
     {% for p in producten %}
     <div class="inv-row">
       <label class="inv-label">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</label>
@@ -49,8 +54,29 @@
   {% endif %}
 
   {% else %}
-  {# ACTIEF: inventaris einde invullen #}
+  {# ACTIEF: stap 1 - wie stopt? #}
   <div class="mode-banner">🎉 Baravond is actief</div>
+
+  {% if not stop_person_id %}
+  <p class="page-intro">Selecteer wie de baravond stopt.</p>
+  <div class="personen-grid">
+    {% for p in personen %}
+    <form method="POST" action="{{ url_for('kiosk.baravond') }}">
+      <input type="hidden" name="actie" value="kies_stop_naam">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart">
+        <div class="persoon-foto">
+          {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
+          {% else %}<span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>{% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  {# ACTIEF: stap 2 - eind-inventaris invullen #}
   <p class="page-intro">Vul de eind-stock in om de baravond te beëindigen.</p>
   <form method="POST" action="{{ url_for('kiosk.baravond_stop') }}" class="inventaris-form">
     <input type="hidden" name="bar_id" value="{{ actief_id }}">
@@ -63,8 +89,12 @@
     {% endfor %}
     <div class="form-actions" style="padding:16px">
       <button type="submit" class="btn-danger">⛔ Baravond beëindigen</button>
+      <form method="POST" action="{{ url_for('kiosk.baravond_reset_stop_naam') }}" style="display:inline">
+        <button type="submit" class="btn-secondary">← Ander persoon</button>
+      </form>
     </div>
   </form>
+  {% endif %}
   {% endif %}
 </div>
 {% endblock %}

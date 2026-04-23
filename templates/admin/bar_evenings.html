@@ -1,0 +1,48 @@
+{% extends "base_admin.html" %}
+{% block title %}Baravonden — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🎉 Baravonden</h1>
+</div>
+
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Naam</th>
+      <th>Start</th>
+      <th>Einde</th>
+      <th>Gestart door</th>
+      <th>Gestopt door</th>
+      <th>Status</th>
+      <th>Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for be in baravonden %}
+    <tr>
+      <td><strong>{{ be.naam or '—' }}</strong></td>
+      <td>{{ be.start_tijd[:16] if be.start_tijd else '—' }}</td>
+      <td>{{ be.eind_tijd[:16] if be.eind_tijd else '—' }}</td>
+      <td>{{ be.activator_bijnaam or be.activator_voornaam or '?' }}</td>
+      <td>{{ be.deactivator_bijnaam or be.deactivator_voornaam or '—' }}</td>
+      <td>
+        {% if be.actief %}
+          <span class="badge-live">ACTIEF</span>
+        {% else %}
+          <span class="badge-inactive">Gestopt</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if not be.actief %}
+          <a href="{{ url_for('admin.baravond_detail', bid=be.id) }}" class="btn-sm btn-secondary">Verbruik & winst</a>
+        {% else %}
+          —
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">Nog geen baravonden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

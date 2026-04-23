@@ -1,0 +1,73 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Bak bestellen — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>🍺 Bak bestellen</h1>
+  </div>
+  <p class="page-intro">Registreer een bak (of doos) die je hebt aangekocht. Vul het aantal stuks en de totale prijs per product in.</p>
+
+  {# Stap 1: persoon kiezen #}
+  {% if not persoon_id %}
+  <h2 style="padding:16px 16px 8px; font-size:18px">Wie heeft de bak gekocht?</h2>
+  <div class="personen-grid">
+    {% for p in personen %}
+    <form method="GET" action="{{ url_for('kiosk.bak_bestellen') }}">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart">
+        <div class="persoon-foto">
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  {# Stap 2: producten invullen #}
+  <h2 style="padding:16px 16px 8px; font-size:18px">
+    Gekocht door: <span style="color:var(--accent)">{{ persoon_naam }}</span>
+  </h2>
+  <form method="POST" action="{{ url_for('kiosk.bak_bestellen_bevestigen') }}" class="shop-form">
+    <input type="hidden" name="person_id" value="{{ persoon_id }}">
+
+    {% for p in producten %}
+    <div class="shop-row">
+      <div class="shop-naam">{{ p.naam }}</div>
+      <label class="shop-label">Stuks</label>
+      <input type="number" name="qty_{{ p.id }}" value="0" min="0" class="shop-qty"
+             oninput="berekenPrijs({{ p.id }})">
+      <label class="shop-label">Totaalprijs (€)</label>
+      <input type="number" name="prijs_{{ p.id }}" value="0.00"
+             min="0" step="0.01" class="shop-prijs"
+             oninput="berekenPrijs({{ p.id }})">
+      <span class="shop-label" id="pps_{{ p.id }}" style="min-width:80px"></span>
+    </div>
+    {% endfor %}
+
+    <div class="bottom-bar">
+      <button type="submit" class="btn-confirm">✅ Bak registreren</button>
+      <a href="{{ url_for('kiosk.bak_bestellen') }}" class="btn-secondary">← Ander persoon</a>
+      <a href="{{ url_for('kiosk.home') }}" class="btn-danger">✕ Annuleren</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function berekenPrijs(pid) {
+    const qty   = parseFloat(document.querySelector(`[name="qty_${pid}"]`).value) || 0;
+    const prijs = parseFloat(document.querySelector(`[name="prijs_${pid}"]`).value) || 0;
+    const el = document.getElementById(`pps_${pid}`);
+    if (el) el.textContent = qty > 0 ? `€${(prijs/qty).toFixed(2)}/st` : '';
+  }
+</script>
+{% endblock %}

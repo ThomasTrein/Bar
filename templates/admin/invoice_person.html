@@ -1,0 +1,101 @@
+{% extends "base_admin.html" %}
+{% block title %}Rekening {{ persoon.bijnaam or persoon.voornaam }} — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Rekening — {{ persoon.bijnaam or (persoon.voornaam + ' ' + (persoon.achternaam or '')) | trim }}</h1>
+  <a href="{{ url_for('admin.rekening') }}" class="btn-secondary">← Overzicht</a>
+</div>
+
+{# Saldo kaart #}
+<div class="dashboard-grid" style="margin-bottom:24px">
+  <div class="dash-card">
+    <h2>Saldo</h2>
+    <table class="admin-table">
+      <tr><td>Totaal besteld</td><td>€{{ "%.2f"|format(totaal_orders) }}</td></tr>
+      <tr><td>Totaal betaald</td><td>€{{ "%.2f"|format(totaal_betalingen) }}</td></tr>
+      <tr>
+        <td><strong>Openstaand saldo</strong></td>
+        <td class="{% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% endif %}">
+          <strong>€{{ "%.2f"|format(saldo) }}</strong>
+          {% if saldo < 0 %}<span style="font-size:0.85em"> (tegoed)</span>{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="dash-card">
+    <h2>Acties</h2>
+    {# Betaling toevoegen #}
+    <form method="POST" action="{{ url_for('admin.rekening_betaling', pid=persoon.id) }}"
+          style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <label style="font-size:0.9em;color:var(--text-dim)">Bedrag toevoegen (positief = betaling, negatief = bijschrijving)</label>
+      <div style="display:flex;gap:8px">
+        <input type="number" name="bedrag" step="0.01" placeholder="€ bedrag"
+               class="form-input" style="flex:1" required>
+        <input type="text" name="beschrijving" placeholder="Opmerking (optioneel)"
+               class="form-input" style="flex:2">
+        <button type="submit" class="btn-primary">Toevoegen</button>
+      </div>
+    </form>
+
+    {# Rekening sluiten #}
+    {% if saldo > 0 %}
+    <form method="POST" action="{{ url_for('admin.rekening_sluiten', pid=persoon.id) }}">
+      <button type="submit" class="btn-danger"
+              onclick="return confirm('Rekening sluiten: €{{ "%.2f"|format(saldo) }} als betaald registreren?')">
+        ✅ Rekening sluiten (€{{ "%.2f"|format(saldo) }})
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{# Betalingen geschiedenis #}
+{% if betalingen %}
+<h2 style="margin-bottom:12px">Betalingen</h2>
+<table class="admin-table" style="margin-bottom:24px">
+  <thead>
+    <tr><th>Datum</th><th>Bedrag</th><th>Opmerking</th></tr>
+  </thead>
+  <tbody>
+    {% for b in betalingen %}
+    <tr>
+      <td>{{ b.tijdstip[:16] }}</td>
+      <td class="{% if b.bedrag >= 0 %}text-success{% else %}text-danger{% endif %}">
+        €{{ "%.2f"|format(b.bedrag) }}
+      </td>
+      <td>{{ b.beschrijving or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# Bestellingen overzicht #}
+{% if items %}
+<h2 style="margin-bottom:12px">Bestellingen (all-time)</h2>
+<table class="admin-table">
+  <thead>
+    <tr><th>Product</th><th>Stuks</th><th>Prijs/stuk</th><th>Subtotaal</th></tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ item.naam }}</td>
+      <td>{{ item.qty }}</td>
+      <td>€{{ "%.2f"|format(item.prijs) }}</td>
+      <td>€{{ "%.2f"|format(item.subtotaal) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3"><strong>Totaal besteld</strong></td>
+      <td><strong>€{{ "%.2f"|format(totaal_orders) }}</strong></td>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p style="color:var(--text-dim)">Nog geen bestellingen.</p>
+{% endif %}
+{% endblock %}

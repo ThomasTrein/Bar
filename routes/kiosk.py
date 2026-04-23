@@ -305,16 +305,26 @@ def baravond():
 
     if request.method == 'POST' and request.form.get('actie') == 'kies_naam':
         session['baravond_person_id'] = request.form.get('person_id', type=int)
+    elif request.method == 'POST' and request.form.get('actie') == 'kies_stop_naam':
+        session['baravond_stop_person_id'] = request.form.get('person_id', type=int)
 
     session_person_id = session.get('baravond_person_id')
+    stop_person_id = session.get('baravond_stop_person_id')
     return render_template('kiosk/bar_evening.html',
                            personen=personen, producten=producten,
-                           actief_id=actief_id, session_person_id=session_person_id)
+                           actief_id=actief_id, session_person_id=session_person_id,
+                           stop_person_id=stop_person_id)
 
 
 @kiosk_bp.route('/baravond/reset-naam', methods=['POST'])
 def baravond_reset_naam():
     session.pop('baravond_person_id', None)
+    return redirect(url_for('kiosk.baravond'))
+
+
+@kiosk_bp.route('/baravond/reset-stop-naam', methods=['POST'])
+def baravond_reset_stop_naam():
+    session.pop('baravond_stop_person_id', None)
     return redirect(url_for('kiosk.baravond'))
 
 
@@ -324,13 +334,14 @@ def baravond_start():
         flash('Aanvulmodus is actief. Stop eerst de aanvulmodus voor je baravond start.', 'error')
         return redirect(url_for('kiosk.baravond'))
     pid = request.form.get('person_id', type=int)
+    naam = request.form.get('naam', '').strip()
     inv = {k.replace('product_', ''): int(v or 0)
            for k, v in request.form.items() if k.startswith('product_')}
 
     rec = start_recording('baravond')
     bar_id = execute(
-        "INSERT INTO bar_evenings (activator_id, start_inventaris, video_path) VALUES (?,?,?)",
-        (pid, json.dumps(inv), rec.get_relatief_pad())
+        "INSERT INTO bar_evenings (activator_id, start_inventaris, video_path, naam) VALUES (?,?,?,?)",
+        (pid, json.dumps(inv), rec.get_relatief_pad(), naam)
     )
     get_fridge_controller().unlock_all()
     p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
@@ -343,7 +354,7 @@ def baravond_start():
 @kiosk_bp.route('/baravond/stop', methods=['POST'])
 def baravond_stop():
     bar_id = session.get('active_bar_evening') or request.form.get('bar_id', type=int)
-    pid    = request.form.get('person_id', type=int)
+    pid    = session.get('baravond_stop_person_id') or request.form.get('person_id', type=int)
     eind   = {k.replace('product_', ''): int(v or 0)
               for k, v in request.form.items() if k.startswith('product_')}
 
@@ -360,9 +371,12 @@ def baravond_stop():
 
     get_fridge_controller().lock_all()
     stop_recording()
-    add_log('baravond', 'Baravond gestopt', pid, bar_id, 'bar_evening')
+    p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
+    naam = (p['bijnaam'] or p['voornaam']) if p else '?'
+    add_log('baravond', f"Baravond gestopt door {naam}", pid, bar_id, 'bar_evening')
     session.pop('active_bar_evening', None)
     session.pop('baravond_person_id', None)
+    session.pop('baravond_stop_person_id', None)
     return redirect(url_for('kiosk.home'))
 
 
@@ -486,6 +500,73 @@ def de_bond_bevestigen():
     timeout = int(get_setting('deur_timeout_sec', '120'))
     get_fridge_controller().unlock_doors(list(deuren), timeout_sec=timeout)
     return redirect(url_for('kiosk.bestelling_wachten'))
+
+
+
+# ─── De Bond - terugzetten ────────────────────────────────────────────────────
+
+@kiosk_bp.route('/de-bond/terugzetten', methods=['GET'])
+def de_bond_terugzetten():
+    producten = query("SELECT * FROM products WHERE actief=1 ORDER BY naam")
+    return render_template('kiosk/bond_return.html', producten=producten)
+
+
+@kiosk_bp.route('/de-bond/terugzetten', methods=['POST'])
+def de_bond_terugzetten_post():
+    from services.fifo import return_to_oldest_fifo
+    teruggezet = 0
+    for key, val in request.form.items():
+        if key.startswith('qty_') and val and int(val) > 0:
+            prod_id = int(key.replace('qty_', ''))
+            qty = int(val)
+            return_to_oldest_fifo(prod_id, qty)
+            teruggezet += qty
+    if teruggezet:
+        add_log('stock', f"De Bond: {teruggezet} items teruggezet naar stock", 1)
+    return redirect(url_for('kiosk.home'))
+
+
+# ─── Bak bier bestellen ───────────────────────────────────────────────────────
+
+@kiosk_bp.route('/bak-bestellen')
+def bak_bestellen():
+    personen = alle_personen()
+    producten = query("SELECT * FROM products WHERE actief=1 ORDER BY naam")
+    pid = request.args.get('person_id', type=int)
+    persoon = None
+    if pid:
+        persoon = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
+    return render_template('kiosk/bak_bestellen.html', personen=personen, producten=producten,
+                           persoon_id=pid,
+                           persoon_naam=(persoon['bijnaam'] or persoon['voornaam']) if persoon else None)
+
+
+@kiosk_bp.route('/bak-bestellen/bevestigen', methods=['POST'])
+def bak_bestellen_bevestigen():
+    from services.fifo import add_batch
+    pid = request.form.get('person_id', type=int)
+    if not pid:
+        return redirect(url_for('kiosk.bak_bestellen'))
+
+    aankoop_id = execute("INSERT INTO shop_purchases (person_id) VALUES (?)", (pid,))
+    n = 0
+    for key, val in request.form.items():
+        if key.startswith('qty_') and val and int(val) > 0:
+            prod_id = int(key.replace('qty_', ''))
+            qty   = int(val)
+            prijs_bak = float(request.form.get(f'prijs_{prod_id}', 0) or 0)
+            prijs_per_stuk = round(prijs_bak / qty, 4) if qty else 0
+            execute(
+                "INSERT INTO shop_purchase_items (aankoop_id,product_id,hoeveelheid,aankoop_prijs_per_stuk) VALUES (?,?,?,?)",
+                (aankoop_id, prod_id, qty, prijs_per_stuk)
+            )
+            add_batch(prod_id, qty, prijs_per_stuk, aankoop_id)
+            n += 1
+
+    p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
+    naam = (p['bijnaam'] or p['voornaam']) if p else '?'
+    add_log('stock', f"Bak bestelling: {n} producten door {naam}", pid, aankoop_id, 'shop_purchase')
+    return redirect(url_for('kiosk.home'))
 
 
 # ─── Winkelaankoop ────────────────────────────────────────────────────────────

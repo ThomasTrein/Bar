@@ -168,6 +168,15 @@ def init_db():
 
     # Migraties voor bestaande databases
     migrations = [
+        "ALTER TABLE bar_evenings ADD COLUMN naam TEXT DEFAULT ''",
+        "ALTER TABLE products ADD COLUMN bak_grootte INTEGER DEFAULT NULL",
+        """CREATE TABLE IF NOT EXISTS betalingen (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            person_id INTEGER REFERENCES persons(id),
+            bedrag REAL NOT NULL,
+            beschrijving TEXT DEFAULT '',
+            tijdstip DATETIME DEFAULT CURRENT_TIMESTAMP
+        )""",
         "ALTER TABLE products ADD COLUMN aankoop_prijs REAL DEFAULT 0",
         """CREATE TABLE IF NOT EXISTS person_blocked_products (
             person_id  INTEGER REFERENCES persons(id) ON DELETE CASCADE,

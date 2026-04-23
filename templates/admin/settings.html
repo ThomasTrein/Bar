@@ -6,6 +6,8 @@
 </div>
 
 {% if opgeslagen %}<div class="alert alert-success">Instellingen opgeslagen.</div>{% endif %}
+{% if succes == 'leeggemaakt' %}<div class="alert alert-success">✅ Database succesvol leeggemaakt. Een automatische backup werd aangemaakt.</div>{% endif %}
+{% if fout == 'leegmaken' %}<div class="alert alert-danger">❌ Typ exact <strong>LEEGMAKEN</strong> om te bevestigen.</div>{% endif %}
 
 <form method="POST" class="settings-form">
   <div class="form-group">
@@ -44,6 +46,68 @@
 
 <hr>
 <div class="form-group">
-  <a href="{{ url_for('admin.backup_download') }}" class="btn-secondary">Database backup downloaden</a>
+  <a href="{{ url_for('admin.backup_download') }}" class="btn-secondary">⬇ Database backup downloaden</a>
 </div>
+
+<div class="form-group" style="margin-top:12px">
+  <h3 style="margin-bottom:8px">⬆ Database herstellen vanuit backup</h3>
+  <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:10px">
+    Upload een .db bestand om de database te vervangen. De huidige data wordt eerst automatisch gebackupt.
+  </p>
+  <form method="POST" action="{{ url_for('admin.backup_upload') }}"
+        enctype="multipart/form-data"
+        onsubmit="return confirm('Database vervangen vanuit backup? Huidige data wordt overschreven (backup wordt eerst aangemaakt).')"
+        style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="file" name="backup_bestand" accept=".db" class="form-file-input" required>
+    <button type="submit" class="btn-primary">⬆ Herstellen</button>
+  </form>
+</div>
+
+<hr>
+<div class="danger-zone">
+  <h2 class="danger-zone-titel">⚠️ Gevarenzone</h2>
+  <p class="danger-zone-desc">
+    Verwijdert alle bestellingen, baravonden, aanvulsessies, logs en winkelaankopen.
+    Stock van alle producten wordt op 0 gezet.
+    Personen, producten, categorieën en instellingen blijven bewaard.
+    <strong>Een automatische backup wordt aangemaakt voor het legen.</strong>
+  </p>
+  <button type="button" class="btn-danger" onclick="document.getElementById('leegmakenModal').style.display='flex'">
+    🗑️ Database leegmaken
+  </button>
+</div>
+
+{# Bevestigingsmodal #}
+<div id="leegmakenModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h2 style="color:var(--danger); margin-bottom:12px">⚠️ Database leegmaken</h2>
+    <p style="margin-bottom:8px">Dit verwijdert <strong>alle transactionele data</strong> permanent:</p>
+    <ul style="margin: 8px 0 16px 20px; color: var(--text-dim); font-size:14px; line-height:1.8">
+      <li>Alle bestellingen &amp; bestelregels</li>
+      <li>Alle baravonden</li>
+      <li>Alle aanvulsessies</li>
+      <li>Alle winkelaankopen</li>
+      <li>Alle logs</li>
+      <li>Stock van alle producten → 0</li>
+    </ul>
+    <p style="margin-bottom:16px">Typ <strong>LEEGMAKEN</strong> om te bevestigen:</p>
+    <form method="POST" action="{{ url_for('admin.database_leegmaken') }}">
+      <input type="text" name="bevestiging" class="form-input" placeholder="LEEGMAKEN"
+             autocomplete="off" style="margin-bottom:16px; font-size:18px; text-transform:uppercase">
+      <div style="display:flex; gap:12px; flex-wrap:wrap">
+        <button type="submit" class="btn-danger">🗑️ Definitief leegmaken</button>
+        <button type="button" class="btn-secondary" onclick="document.getElementById('leegmakenModal').style.display='none'">Annuleren</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Sluit modal bij klik buiten de box
+  document.getElementById('leegmakenModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+</script>
 {% endblock %}

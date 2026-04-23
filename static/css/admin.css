@@ -138,6 +138,9 @@ tfoot tr { border-top: 2px solid var(--border); }
 .badge-warning  { background: var(--warning); color: #fff; border-radius: 4px;
                   padding: 2px 6px; font-size: 11px; font-weight: 700; }
 .badge-special  { background: #6a0dad; color: #fff; border-radius: 4px;
+                  padding: 2px 6px; font-size: 12px; font-weight: 700; }
+.badge-inactive { background: var(--surface2); color: var(--text-dim); border-radius: 4px;
+                  padding: 2px 6px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
                   padding: 2px 6px; font-size: 11px; font-weight: 700; }
 .badge-secondary { background: var(--surface2); color: var(--text-dim); border-radius: 4px;
                    padding: 2px 8px; font-size: 12px; font-weight: 700;
@@ -185,6 +188,34 @@ tfoot tr { border-top: 2px solid var(--border); }
 .hw-deur-card { background: var(--surface); border: 1px solid var(--border);
                 border-radius: var(--radius); padding: 20px; }
 .hw-deur-card h2 { margin-bottom: 16px; }
+
+/* ---- Danger zone ---- */
+.danger-zone {
+  margin-top: 8px;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: rgba(224,85,85,.06);
+}
+.danger-zone-titel {
+  font-size: 18px; font-weight: 700; color: var(--danger); margin-bottom: 10px;
+}
+.danger-zone-desc {
+  color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 20px;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9000;
+}
+.modal-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 32px;
+  width: calc(100% - 40px); max-width: 480px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+}
 .hw-status { margin-bottom: 16px; }
 .hw-status-item { display: flex; align-items: center; justify-content: space-between;
                   padding: 8px 0; border-bottom: 1px solid var(--border); }

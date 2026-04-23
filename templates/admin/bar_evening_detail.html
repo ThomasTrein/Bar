@@ -1,0 +1,91 @@
+{% extends "base_admin.html" %}
+{% block title %}Baravond #{{ be.id }} — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>🎉 Baravond #{{ be.id }} — {{ be.naam or 'Naamloos' }}</h1>
+  <a href="{{ url_for('admin.baravond_list') }}" class="btn-secondary">← Alle baravonden</a>
+</div>
+
+{# Naam bewerken #}
+<div class="dash-card" style="margin-bottom:24px">
+  <h2>Naam aanpassen</h2>
+  <form method="POST" action="{{ url_for('admin.baravond_update_naam', bid=be.id) }}"
+        style="display:flex;gap:12px;align-items:center">
+    <input type="text" name="naam" value="{{ be.naam or '' }}"
+           placeholder="Naam baravond…" class="form-input" style="flex:1">
+    <button type="submit" class="btn-primary">Opslaan</button>
+  </form>
+</div>
+
+<div class="dashboard-grid" style="margin-bottom:24px">
+  <div class="dash-card">
+    <h2>Info</h2>
+    <table class="admin-table">
+      <tr><td>Start</td><td>{{ be.start_tijd[:16] if be.start_tijd else '—' }}</td></tr>
+      <tr><td>Einde</td><td>{{ be.eind_tijd[:16] if be.eind_tijd else '—' }}</td></tr>
+      <tr><td>Gestart door</td><td>{{ (activator.bijnaam or activator.voornaam) if activator else '?' }}</td></tr>
+      <tr><td>Gestopt door</td><td>{{ (deactivator.bijnaam or deactivator.voornaam) if deactivator else '—' }}</td></tr>
+    </table>
+  </div>
+  <div class="dash-card">
+    <h2>Totalen</h2>
+    <table class="admin-table">
+      <tr><td>Omzet</td><td><strong>€{{ "%.2f"|format(totaal_omzet) }}</strong></td></tr>
+      <tr><td>Kosten</td><td><strong>€{{ "%.2f"|format(totaal_kosten) }}</strong></td></tr>
+      <tr><td>Winst</td>
+        <td class="{% if totaal_winst < 0 %}text-danger{% else %}text-success{% endif %}">
+          <strong>€{{ "%.2f"|format(totaal_winst) }}</strong>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+{% if regels %}
+<h2 style="margin-bottom:12px">Verbruik per product</h2>
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Product</th>
+      <th>Start stock</th>
+      <th>Eind stock</th>
+      <th>Verbruikt</th>
+      <th>Verkoop €/st</th>
+      <th>Aankoop €/st</th>
+      <th>Omzet</th>
+      <th>Kosten</th>
+      <th>Winst</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in regels %}
+    <tr class="{% if r.winst < 0 %}row-danger{% endif %}">
+      <td>{{ r.naam }}</td>
+      <td>{{ r.start }}</td>
+      <td>{{ r.eind }}</td>
+      <td><strong>{{ r.verbruikt }}</strong></td>
+      <td>€{{ "%.2f"|format(r.vprijs) }}</td>
+      <td>€{{ "%.2f"|format(r.aprijs) }}</td>
+      <td>€{{ "%.2f"|format(r.omzet) }}</td>
+      <td>€{{ "%.2f"|format(r.kosten) }}</td>
+      <td class="{% if r.winst < 0 %}text-danger{% else %}text-success{% endif %}">
+        €{{ "%.2f"|format(r.winst) }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="6"><strong>Totaal</strong></td>
+      <td><strong>€{{ "%.2f"|format(totaal_omzet) }}</strong></td>
+      <td><strong>€{{ "%.2f"|format(totaal_kosten) }}</strong></td>
+      <td class="{% if totaal_winst < 0 %}text-danger{% else %}text-success{% endif %}">
+        <strong>€{{ "%.2f"|format(totaal_winst) }}</strong>
+      </td>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p style="color:var(--text-dim)">Geen verbruiksdata beschikbaar.</p>
+{% endif %}
+{% endblock %}

@@ -3,9 +3,9 @@ import os, io, json, time, uuid
 from datetime import datetime
 from functools import wraps
 from flask import (Blueprint, render_template, request, redirect,
-                   url_for, session, send_file, jsonify)
+                   url_for, session, send_file, jsonify, flash)
 from database.db import get_db, query, execute, add_log, get_setting, set_setting
-from config import UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR
+from config import UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, DATABASE_PATH
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -20,7 +20,7 @@ def login_required(f):
         logout_min = int(get_setting('admin_logout_min', '10'))
         if time.time() - session.get('admin_last_active', 0) > logout_min * 60:
             session.pop('admin_logged_in', None)
-            return redirect(url_for('admin.login'))
+            return redirect(url_for('kiosk.home'))
         session['admin_last_active'] = time.time()
         return f(*a, **kw)
     return wrap
@@ -101,12 +101,14 @@ def product_nieuw():
     cat_id   = request.form.get('categorie_id', type=int)
     prijs    = request.form.get('verkoop_prijs', 0.0, type=float)
     deuren   = request.form.getlist('deuren')
+    bak_grootte_str = request.form.get('bak_grootte', '').strip()
+    bak_grootte = int(bak_grootte_str) if bak_grootte_str.isdigit() and int(bak_grootte_str) > 0 else None
 
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products')
 
     pid = execute(
-        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, foto_path) VALUES (?,?,?,0,?)",
-        (naam, cat_id, prijs, foto_path)
+        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, bak_grootte, foto_path) VALUES (?,?,?,0,?,?)",
+        (naam, cat_id, prijs, bak_grootte, foto_path)
     )
     for d in deuren:
         try:
@@ -128,12 +130,14 @@ def product_bewerken(pid):
     prijs = request.form.get('verkoop_prijs', type=float)
     actief= 1 if request.form.get('actief') else 0
     deuren= request.form.getlist('deuren')
+    bak_grootte_str = request.form.get('bak_grootte', '').strip()
+    bak_grootte = int(bak_grootte_str) if bak_grootte_str.isdigit() and int(bak_grootte_str) > 0 else None
     # Aankoopprijs en stock worden NIET aangepast via admin productenbeheer
     huidige_stock    = old['stock']    if old else 0
     huidige_aankoop  = old['aankoop_prijs'] if old else 0
 
-    execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=? WHERE id=?",
-            (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, pid))
+    execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=?,bak_grootte=? WHERE id=?",
+            (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, bak_grootte, pid))
     execute("DELETE FROM product_doors WHERE product_id=?", (pid,))
     for d in deuren:
         try:
@@ -408,22 +412,97 @@ def rekening():
 @admin_bp.route('/rekening/persoon/<int:pid>')
 @login_required
 def rekening_persoon(pid):
-    datum_van = request.args.get('datum_van', datetime.now().replace(day=1).strftime('%Y-%m-%d'))
-    datum_tot = request.args.get('datum_tot', datetime.now().strftime('%Y-%m-%d'))
     p = query("SELECT * FROM persons WHERE id=?", (pid,), one=True)
+    if not p:
+        return redirect(url_for('admin.rekening'))
+
+    # All-time orders totaal
+    totaal_orders = query(
+        """SELECT COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot), 0) as totaal
+           FROM order_items oi
+           JOIN orders o ON oi.order_id=o.id
+           WHERE oi.person_id=? AND o.geannuleerd=0""",
+        (pid,), one=True
+    )['totaal']
+
+    # All-time betalingen totaal
+    totaal_betalingen = query(
+        "SELECT COALESCE(SUM(bedrag), 0) as totaal FROM betalingen WHERE person_id=?",
+        (pid,), one=True
+    )['totaal']
+
+    saldo = round(totaal_orders - totaal_betalingen, 2)
+
+    # Betalingen geschiedenis
+    betalingen = query(
+        "SELECT * FROM betalingen WHERE person_id=? ORDER BY tijdstip DESC",
+        (pid,)
+    )
+
+    # Bestellingen per product (all-time)
     items = query(
-        """SELECT pr.naam, SUM(oi.hoeveelheid) as qty, oi.verkoop_prijs_snapshot as prijs,
+        """SELECT pr.naam, SUM(oi.hoeveelheid) as qty,
+               oi.verkoop_prijs_snapshot as prijs,
                SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as subtotaal
            FROM order_items oi
            JOIN products pr ON oi.product_id=pr.id
            JOIN orders o ON oi.order_id=o.id
            WHERE oi.person_id=? AND o.geannuleerd=0
-             AND o.tijdstip BETWEEN ? AND ?
            GROUP BY pr.id, oi.verkoop_prijs_snapshot ORDER BY pr.naam""",
-        (pid, datum_van, datum_tot + ' 23:59:59')
+        (pid,)
     )
+
     return render_template('admin/invoice_person.html',
-                           persoon=p, items=items, datum_van=datum_van, datum_tot=datum_tot)
+                           persoon=p, items=items,
+                           totaal_orders=totaal_orders,
+                           totaal_betalingen=totaal_betalingen,
+                           saldo=saldo,
+                           betalingen=betalingen)
+
+
+@admin_bp.route('/rekening/persoon/<int:pid>/betaling', methods=['POST'])
+@login_required
+def rekening_betaling(pid):
+    try:
+        bedrag = float(request.form.get('bedrag', 0))
+    except ValueError:
+        bedrag = 0
+    beschrijving = request.form.get('beschrijving', '').strip()
+    if bedrag != 0:
+        execute(
+            "INSERT INTO betalingen (person_id, bedrag, beschrijving) VALUES (?,?,?)",
+            (pid, bedrag, beschrijving)
+        )
+        add_log('betaling', f"Betaling €{bedrag:.2f} — {beschrijving or 'geen opmerking'}",
+                pid, None, 'betaling')
+        flash(f'Betaling van €{bedrag:.2f} geregistreerd.', 'success')
+    return redirect(url_for('admin.rekening_persoon', pid=pid))
+
+
+@admin_bp.route('/rekening/persoon/<int:pid>/sluiten', methods=['POST'])
+@login_required
+def rekening_sluiten(pid):
+    totaal_orders = query(
+        """SELECT COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot), 0) as totaal
+           FROM order_items oi JOIN orders o ON oi.order_id=o.id
+           WHERE oi.person_id=? AND o.geannuleerd=0""",
+        (pid,), one=True
+    )['totaal']
+    totaal_betalingen = query(
+        "SELECT COALESCE(SUM(bedrag), 0) as totaal FROM betalingen WHERE person_id=?",
+        (pid,), one=True
+    )['totaal']
+    saldo = round(totaal_orders - totaal_betalingen, 2)
+    if saldo > 0:
+        execute(
+            "INSERT INTO betalingen (person_id, bedrag, beschrijving) VALUES (?,?,?)",
+            (pid, saldo, 'Rekening gesloten')
+        )
+        add_log('betaling', f"Rekening gesloten — €{saldo:.2f} betaald", pid, None, 'betaling')
+        flash(f'Rekening gesloten. €{saldo:.2f} geregistreerd als betaald.', 'success')
+    else:
+        flash('Saldo is al nul of negatief, niets gesloten.', 'info')
+    return redirect(url_for('admin.rekening_persoon', pid=pid))
 
 
 @admin_bp.route('/rekening/export')
@@ -497,6 +576,93 @@ def rekening_export():
         return send_file(out, mimetype='application/pdf',
                          as_attachment=True,
                          download_name=f"rekening_{datum_van}_{datum_tot}.pdf")
+
+
+# ─── Baravonden ───────────────────────────────────────────────────────────────
+
+@admin_bp.route('/baravond')
+@login_required
+def baravond_list():
+    baravonden = query(
+        """SELECT be.*,
+                  pa.voornaam as activator_voornaam, pa.bijnaam as activator_bijnaam,
+                  pd.voornaam as deactivator_voornaam, pd.bijnaam as deactivator_bijnaam
+           FROM bar_evenings be
+           LEFT JOIN persons pa ON be.activator_id = pa.id
+           LEFT JOIN persons pd ON be.deactivator_id = pd.id
+           ORDER BY be.start_tijd DESC"""
+    )
+    return render_template('admin/bar_evenings.html', baravonden=baravonden)
+
+
+@admin_bp.route('/baravond/<int:bid>')
+@login_required
+def baravond_detail(bid):
+    be = query("SELECT * FROM bar_evenings WHERE id=?", (bid,), one=True)
+    if not be:
+        return redirect(url_for('admin.baravond_list'))
+
+    start_inv = json.loads(be['start_inventaris'] or '{}')
+    eind_inv  = json.loads(be['eind_inventaris'] or '{}')
+    verbruik  = json.loads(be['verbruik'] or '{}')
+
+    # Verrijken met productnamen + prijzen
+    product_ids = set(start_inv) | set(verbruik)
+    prods = {}
+    if product_ids:
+        placeholders = ','.join('?' * len(product_ids))
+        rows = query(
+            f"SELECT id, naam, verkoop_prijs, aankoop_prijs FROM products WHERE id IN ({placeholders})",
+            [int(i) for i in product_ids]
+        )
+        prods = {str(r['id']): dict(r) for r in rows}
+
+    regels = []
+    totaal_omzet = totaal_kosten = 0.0
+    for pid_str, verbruikt in verbruik.items():
+        if verbruikt <= 0:
+            continue
+        prod = prods.get(pid_str, {})
+        vprijs = prod.get('verkoop_prijs', 0) or 0
+        aprijs = prod.get('aankoop_prijs', 0) or 0
+        omzet  = verbruikt * vprijs
+        kosten = verbruikt * aprijs
+        totaal_omzet  += omzet
+        totaal_kosten += kosten
+        regels.append({
+            'naam':      prod.get('naam', f'Product {pid_str}'),
+            'start':     start_inv.get(pid_str, 0),
+            'eind':      eind_inv.get(pid_str, 0),
+            'verbruikt': verbruikt,
+            'vprijs':    vprijs,
+            'aprijs':    aprijs,
+            'omzet':     omzet,
+            'kosten':    kosten,
+            'winst':     omzet - kosten,
+        })
+    regels.sort(key=lambda r: r['verbruikt'], reverse=True)
+
+    activator = query("SELECT voornaam, bijnaam FROM persons WHERE id=?",
+                      (be['activator_id'],), one=True)
+    deactivator = (query("SELECT voornaam, bijnaam FROM persons WHERE id=?",
+                          (be['deactivator_id'],), one=True)
+                   if be['deactivator_id'] else None)
+
+    return render_template('admin/bar_evening_detail.html',
+                           be=be, regels=regels,
+                           activator=activator, deactivator=deactivator,
+                           totaal_omzet=round(totaal_omzet, 2),
+                           totaal_kosten=round(totaal_kosten, 2),
+                           totaal_winst=round(totaal_omzet - totaal_kosten, 2))
+
+
+@admin_bp.route('/baravond/<int:bid>/naam', methods=['POST'])
+@login_required
+def baravond_update_naam(bid):
+    naam = request.form.get('naam', '').strip()
+    execute("UPDATE bar_evenings SET naam=? WHERE id=?", (naam, bid))
+    flash('Naam opgeslagen.', 'success')
+    return redirect(url_for('admin.baravond_detail', bid=bid))
 
 
 # ─── Winst ────────────────────────────────────────────────────────────────────
@@ -622,10 +788,54 @@ def instellingen():
         add_log('admin', 'Instellingen gewijzigd')
         return redirect(url_for('admin.instellingen'))
     all_s = {r['sleutel']: r['waarde'] for r in query("SELECT sleutel,waarde FROM settings")}
-    return render_template('admin/settings.html', settings=all_s)
+    fout = request.args.get('fout')
+    succes = request.args.get('succes')
+    return render_template('admin/settings.html', settings=all_s, fout=fout, succes=succes)
 
 
-# ─── Backup download ──────────────────────────────────────────────────────────
+# ─── Database leegmaken ───────────────────────────────────────────────────────
+
+TRANSACTIONELE_TABELLEN = [
+    'order_items', 'orders',
+    'bar_evenings',
+    'refill_sessions',
+    'shop_purchase_items', 'shop_purchases',
+    'fifo_batches',
+    'door_events',
+    'logs',
+    'admin_sessions',
+]
+
+@admin_bp.route('/instellingen/database-leegmaken', methods=['POST'])
+@login_required
+def database_leegmaken():
+    bevestiging = request.form.get('bevestiging', '').strip()
+    if bevestiging != 'LEEGMAKEN':
+        return redirect(url_for('admin.instellingen', fout='leegmaken'))
+
+    from services.backup import backup_database
+    backup_database()  # automatische backup vóór het legen
+
+    conn = get_db()
+    for tabel in TRANSACTIONELE_TABELLEN:
+        conn.execute(f"DELETE FROM {tabel}")
+    # Reset stock van alle producten naar 0
+    conn.execute("UPDATE products SET stock = 0")
+    # Reset auto-increment tellers
+    conn.execute(
+        "DELETE FROM sqlite_sequence WHERE name IN ({})".format(
+            ','.join('?' * len(TRANSACTIONELE_TABELLEN))
+        ),
+        TRANSACTIONELE_TABELLEN
+    )
+    conn.commit()
+    conn.close()
+
+    add_log('admin', 'Database volledig leeggemaakt')
+    return redirect(url_for('admin.instellingen', succes='leeggemaakt'))
+
+
+# ─── Backup download / upload ─────────────────────────────────────────────────
 
 @admin_bp.route('/backup/download')
 @login_required
@@ -633,6 +843,25 @@ def backup_download():
     from services.backup import backup_database
     pad = backup_database()
     return send_file(pad, as_attachment=True, download_name=os.path.basename(pad))
+
+
+@admin_bp.route('/backup/upload', methods=['POST'])
+@login_required
+def backup_upload():
+    bestand = request.files.get('backup_bestand')
+    if not bestand or not bestand.filename.endswith('.db'):
+        flash('Ongeldig bestand. Upload een .db bestand.', 'error')
+        return redirect(url_for('admin.instellingen'))
+
+    from services.backup import backup_database
+    backup_database()  # maak eerst een backup van huidige data
+
+    import shutil
+    shutil.copy2(DATABASE_PATH, DATABASE_PATH + '.voor_upload.bak')
+    bestand.save(DATABASE_PATH)
+    add_log('admin', f'Database hersteld via upload: {bestand.filename}')
+    flash(f'Database hersteld vanuit {bestand.filename}. Herstart de app voor beste resultaten.', 'success')
+    return redirect(url_for('admin.instellingen'))
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

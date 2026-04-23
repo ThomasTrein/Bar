@@ -22,7 +22,7 @@
     {% for s in stats %}
     <tr class="{% if s.winst < 0 %}row-danger{% endif %}">
       <td>{{ s.naam }}</td>
-      <td>{{ s.verkocht }}</td>
+      <td>{{ s.totaal_stuks }}</td>
       <td>€{{ "%.2f"|format(s.omzet) }}</td>
       <td>€{{ "%.2f"|format(s.kosten) }}</td>
       <td>€{{ "%.2f"|format(s.winst) }}</td>
