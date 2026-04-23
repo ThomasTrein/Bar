@@ -3,11 +3,10 @@
 {% block content %}
 <div class="admin-page-header">
   <h1>👤 Persoonsbeheer</h1>
-  <button class="btn-primary" onclick="toggleNewForm()">➕ Persoon toevoegen</button>
 </div>
 
-{# Nieuw persoon formulier #}
-<div id="new-person-form" class="card hidden" style="margin-bottom:24px">
+{# Nieuw persoon formulier (altijd zichtbaar) #}
+<div class="card" style="margin-bottom:24px">
   <h3 style="margin:0 0 16px">Nieuwe persoon</h3>
   <form method="POST" action="{{ url_for('admin.persoon_nieuw') }}" enctype="multipart/form-data" class="inline-form">
     <div class="form-row">
@@ -29,7 +28,6 @@
       </div>
     </div>
     <button type="submit" class="btn-primary">Opslaan</button>
-    <button type="button" class="btn-secondary" onclick="toggleNewForm()">Annuleren</button>
   </form>
 </div>
 
@@ -102,9 +100,6 @@
 <script>
   function toggleEditRow(id) {
     document.getElementById('edit-' + id).classList.toggle('hidden');
-  }
-  function toggleNewForm() {
-    document.getElementById('new-person-form').classList.toggle('hidden');
   }
 </script>
 {% endblock %}

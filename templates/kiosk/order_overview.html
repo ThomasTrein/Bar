@@ -25,7 +25,7 @@
         {% if toon_prijs %}
           <span class="ov-prijs">€{{ "%.2f"|format(item.hoeveelheid * item.prijs) }}</span>
         {% endif %}
-        <button class="ov-delete" onclick="verwijderItem({{ loop.index0 }})">✕</button>
+        <button class="ov-delete" onclick="verwijderItem({{ item.person_id }}, {{ item.product_id }})">✕</button>
       </div>
     {% endfor %}
     {% if order.regels %}</div>{% endif %}
@@ -50,11 +50,11 @@
 
 {% block scripts %}
 <script>
-  async function verwijderItem(idx) {
+  async function verwijderItem(personId, productId) {
     const r = await fetch('/api/bestelling/item-verwijderen', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({index: idx})
+      body: JSON.stringify({person_id: personId, product_id: productId})
     });
     if ((await r.json()).ok) location.reload();
   }

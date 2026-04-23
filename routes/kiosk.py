@@ -109,7 +109,8 @@ def bestelling_extra_persoon_post():
     save_order(order)
     return redirect(url_for('kiosk.bestelling_producten'))
 
-
+
+
 # ─── Bestelling: wissel actieve persoon ──────────────────────────────────────
 
 @kiosk_bp.route('/bestelling/wissel-persoon', methods=['POST'])
@@ -184,7 +185,31 @@ def bestelling_overzicht():
     if not order.get('started') or not order.get('regels'):
         return redirect(url_for('kiosk.bestelling_producten'))
     toon_prijs = get_setting('prijs_tonen', 'false') == 'true'
-    return render_template('kiosk/order_overview.html', order=order, toon_prijs=toon_prijs)
+
+    # Groepeer regels per persoon (volgorde eerste verschijning) en per product
+    personen_volgorde = []
+    persoon_items = {}
+    for item in order['regels']:
+        pid = item['person_id']
+        if pid not in persoon_items:
+            personen_volgorde.append(pid)
+            persoon_items[pid] = {'naam': item['person_naam'], 'producten': {}}
+        prod_key = (item['product_id'], item['prijs'])
+        if prod_key not in persoon_items[pid]['producten']:
+            persoon_items[pid]['producten'][prod_key] = dict(item)
+        else:
+            persoon_items[pid]['producten'][prod_key]['hoeveelheid'] += item['hoeveelheid']
+
+    gegroepeerde_regels = []
+    for pid in personen_volgorde:
+        for regel in persoon_items[pid]['producten'].values():
+            gegroepeerde_regels.append(regel)
+
+    gegroepeerde_order = dict(order)
+    gegroepeerde_order['regels'] = gegroepeerde_regels
+
+    return render_template('kiosk/order_overview.html',
+                           order=gegroepeerde_order, toon_prijs=toon_prijs)
 
 
 @kiosk_bp.route('/bestelling/bevestigen', methods=['POST'])
@@ -480,10 +505,13 @@ def winkelaankoop_bevestigen():
 
 @kiosk_bp.route('/persoon/nieuw', methods=['GET', 'POST'])
 def persoon_nieuw():
+    next_url = request.args.get('next', 'bestelling_naam')
     if request.method == 'POST':
         voornaam = request.form.get('voornaam', '').strip()
+        next_url = request.form.get('next', 'bestelling_naam')
         if not voornaam:
-            return render_template('kiosk/new_person.html', fout="Voornaam is verplicht")
+            return render_template('kiosk/new_person.html',
+                                   fout="Voornaam is verplicht", next=next_url)
 
         foto_path = ''
         foto = request.files.get('foto')
@@ -500,6 +528,8 @@ def persoon_nieuw():
              request.form.get('bijnaam', '').strip(), foto_path)
         )
         add_log('systeem', f"Nieuw persoon: {voornaam}", pid)
+        if next_url == 'home':
+            return redirect(url_for('kiosk.home'))
         return redirect(url_for('kiosk.bestelling_naam'))
 
-    return render_template('kiosk/new_person.html')
+    return render_template('kiosk/new_person.html', next=next_url)

@@ -83,13 +83,20 @@ def personen_zoeken():
 
 @api_bp.route('/bestelling/item-verwijderen', methods=['POST'])
 def item_verwijderen():
-    idx = (request.get_json(silent=True) or {}).get('index', -1)
+    data = request.get_json(silent=True) or {}
+    person_id  = data.get('person_id')
+    product_id = data.get('product_id')
     order = session.get('active_order', {})
     items = order.get('regels', [])
-    if 0 <= idx < len(items):
-        items.pop(idx)
-        order['regels'] = items
-        session['active_order'] = order
-        session.modified = True
-        return jsonify({'ok': True})
-    return jsonify({'ok': False}), 400
+    if person_id is None or product_id is None:
+        return jsonify({'ok': False}), 400
+    nieuwe_items = [
+        item for item in items
+        if not (item['person_id'] == person_id and item['product_id'] == product_id)
+    ]
+    if len(nieuwe_items) == len(items):
+        return jsonify({'ok': False}), 400
+    order['regels'] = nieuwe_items
+    session['active_order'] = order
+    session.modified = True
+    return jsonify({'ok': True})

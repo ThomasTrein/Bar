@@ -148,8 +148,8 @@ def product_bewerken(pid):
 @login_required
 def product_verwijderen(pid):
     p = query("SELECT naam FROM products WHERE id=?", (pid,), one=True)
-    execute("DELETE FROM products WHERE id=?", (pid,))
-    add_log('admin', f"Product verwijderd: {p['naam'] if p else pid}")
+    execute("UPDATE products SET actief=0 WHERE id=?", (pid,))
+    add_log('admin', f"Product verwijderd (soft): {p['naam'] if p else pid}")
     return redirect(url_for('admin.producten'))
 
 
@@ -248,12 +248,8 @@ def persoon_verwijderen(pid):
     p = query("SELECT * FROM persons WHERE id=?", (pid,), one=True)
     if not p or p['is_bond']:
         return redirect(url_for('admin.personen'))
-    if request.form.get('bevestigd') == 'ja':
-        execute("DELETE FROM persons WHERE id=?", (pid,))
-        add_log('admin', f"Persoon #{pid} verwijderd")
-    else:
-        execute("UPDATE persons SET actief=0 WHERE id=?", (pid,))
-        add_log('admin', f"Persoon #{pid} gedeactiveerd")
+    execute("UPDATE persons SET actief=0 WHERE id=?", (pid,))
+    add_log('admin', f"Persoon #{pid} gedeactiveerd")
     return redirect(url_for('admin.personen'))
 
 
