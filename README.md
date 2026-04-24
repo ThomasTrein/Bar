@@ -5,6 +5,28 @@
 
 ---
 
+## Dingen die zijn aangepast:
+
+- De bak bestellen optie in het hamburger menu moet weg. Je kan enkel een bak bestellen als je een bestelling start. De functie bak bestellen moet bij het product staan. Onder of naast de knop die al bestaat. De locatie mag je zelf kiezen wat het beste is.
+
+- Als je een nieuwe winkel aankoop wil registeren dan zijn de namen en initiaal onderlijnd. Ik wil niet dat ze onderlijnd zijn.
+
+- Voor iemand iets op de bond kan plaatsen moet deze ook eerst een naam selecteren. Er moet ook gefilmd worden.
+
+- Als ik al ben ingelogd als admin en ik ga terug naar het admin paneel dan wil ik niet dat ik nog eens mijn wachtwoord moet invullen.
+
+- De instelling prijzen tonen op kiosk die werkt niet. Als hij eerst op ja staat en je zet hem op nee en je slaat op dan staan de prijzen er nog steeds.
+
+- In het admin paneel moet je naar alles kunnen doorklikken.
+
+- In de rekening tab moet je al de bestelde items kunnen zien, hun totaal. Je moet ook al de bestellingen kunnen zien van die persoon. Je moet ook het winst/verlies zien dat je op die persoon hebt gemaakt.
+
+- Als je de aanvul modus stopt moet je ook weten wie hem stopt in de logs.
+
+- Als je in productbeheer filtert op de categorieën gebeurt er niks. Als je op een categorie klikt dan mag je enkel nog maar producten zien van die categorie.
+
+---
+
 # Analyse **KSA Bar app**
 
 
