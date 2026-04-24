@@ -1,0 +1,30 @@
+{% extends "base_kiosk.html" %}
+{% block title %}Aanvulmodus stoppen — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.aanvullen') }}" class="btn-back">← Terug</a>
+    <h1>⛔ Aanvulmodus stoppen</h1>
+  </div>
+  <p class="page-intro">Wie stopt de aanvulmodus?</p>
+
+  <div class="personen-grid">
+    {% for p in personen %}
+    <form method="POST" action="{{ url_for('kiosk.aanvullen_stop') }}">
+      <input type="hidden" name="door_data" value="{{ door_data }}">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart">
+        <div class="persoon-foto">
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

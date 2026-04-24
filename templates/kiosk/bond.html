@@ -3,8 +3,9 @@
 {% block content %}
 <div class="page-screen">
   <div class="page-header">
-    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <a href="{{ url_for('kiosk.de_bond_naam') }}" class="btn-back">← Terug</a>
     <h1>🏠 De Bond</h1>
+    <span style="font-size:14px;color:var(--text-dim)">👤 {{ person_naam }}</span>
   </div>
   <p class="page-intro">Producten voor de KSA zelf (puur verlies).</p>
 

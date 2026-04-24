@@ -28,6 +28,12 @@ def login_required(f):
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    # Als al ingelogd en sessie nog geldig → direct naar dashboard
+    if session.get('admin_logged_in'):
+        logout_min = int(get_setting('admin_logout_min', '10'))
+        if time.time() - session.get('admin_last_active', 0) <= logout_min * 60:
+            session['admin_last_active'] = time.time()
+            return redirect(url_for('admin.dashboard'))
     if request.method == 'POST':
         if request.form.get('wachtwoord') == get_setting('admin_password', 'admin123'):
             session['admin_logged_in'] = True
@@ -83,13 +89,25 @@ def dashboard():
 @admin_bp.route('/producten')
 @login_required
 def producten():
-    prods = query(
-        """SELECT p.*, c.naam as cat_naam, GROUP_CONCAT(pd.deur) as deuren
-           FROM products p
-           LEFT JOIN categories c ON p.categorie_id=c.id
-           LEFT JOIN product_doors pd ON p.id=pd.product_id
-           GROUP BY p.id ORDER BY c.volgorde, p.naam"""
-    )
+    cat_filter = request.args.get('cat', type=int)
+    if cat_filter:
+        prods = query(
+            """SELECT p.*, c.naam as cat_naam, GROUP_CONCAT(pd.deur) as deuren
+               FROM products p
+               LEFT JOIN categories c ON p.categorie_id=c.id
+               LEFT JOIN product_doors pd ON p.id=pd.product_id
+               WHERE p.categorie_id=?
+               GROUP BY p.id ORDER BY c.volgorde, p.naam""",
+            (cat_filter,)
+        )
+    else:
+        prods = query(
+            """SELECT p.*, c.naam as cat_naam, GROUP_CONCAT(pd.deur) as deuren
+               FROM products p
+               LEFT JOIN categories c ON p.categorie_id=c.id
+               LEFT JOIN product_doors pd ON p.id=pd.product_id
+               GROUP BY p.id ORDER BY c.volgorde, p.naam"""
+        )
     cats = query("SELECT * FROM categories ORDER BY volgorde")
     return render_template('admin/products.html', producten=prods, categorieen=cats)
 
@@ -452,12 +470,40 @@ def rekening_persoon(pid):
         (pid,)
     )
 
+    # Individuele bestellingen
+    bestellingen = query(
+        """SELECT o.id, o.tijdstip, o.type,
+               COUNT(oi.id) as items,
+               SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal
+           FROM orders o
+           JOIN order_items oi ON oi.order_id=o.id
+           WHERE oi.person_id=? AND o.geannuleerd=0
+           GROUP BY o.id ORDER BY o.tijdstip DESC""",
+        (pid,)
+    )
+
+    # Winst/verlies: verkoop - aankoop (per besteld product)
+    winst_data = query(
+        """SELECT SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as omzet,
+               SUM(oi.hoeveelheid * pr.aankoop_prijs) as kosten
+           FROM order_items oi
+           JOIN products pr ON oi.product_id=pr.id
+           JOIN orders o ON oi.order_id=o.id
+           WHERE oi.person_id=? AND o.geannuleerd=0""",
+        (pid,), one=True
+    )
+    omzet  = winst_data['omzet']  or 0
+    kosten = winst_data['kosten'] or 0
+    winst  = round(omzet - kosten, 2)
+
     return render_template('admin/invoice_person.html',
                            persoon=p, items=items,
                            totaal_orders=totaal_orders,
                            totaal_betalingen=totaal_betalingen,
                            saldo=saldo,
-                           betalingen=betalingen)
+                           betalingen=betalingen,
+                           bestellingen=bestellingen,
+                           omzet=omzet, kosten=kosten, winst=winst)
 
 
 @admin_bp.route('/rekening/persoon/<int:pid>/betaling', methods=['POST'])
@@ -577,7 +623,8 @@ def rekening_export():
                          as_attachment=True,
                          download_name=f"rekening_{datum_van}_{datum_tot}.pdf")
 
-
+
+
 # ─── Baravonden ───────────────────────────────────────────────────────────────
 
 @admin_bp.route('/baravond')
@@ -784,7 +831,7 @@ def instellingen():
             v = request.form.get(k, '').strip()
             if v:
                 set_setting(k, v)
-        set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') else 'false')
+        set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') == '1' else 'false')
         add_log('admin', 'Instellingen gewijzigd')
         return redirect(url_for('admin.instellingen'))
     all_s = {r['sleutel']: r['waarde'] for r in query("SELECT sleutel,waarde FROM settings")}

@@ -40,7 +40,7 @@
       <tbody>
         {% for r in schulden %}
         <tr>
-          <td>{{ r.bijnaam or r.voornaam }}</td>
+          <td><a href="{{ url_for('admin.rekening_persoon', pid=r.id) }}" style="color:inherit">{{ r.bijnaam or r.voornaam }}</a></td>
           <td>€{{ "%.2f"|format(r.totaal) }}</td>
         </tr>
         {% else %}
@@ -71,7 +71,7 @@
       <thead><tr><th>Tijdstip</th><th>Persoon</th><th>Items</th><th>Totaal</th></tr></thead>
       <tbody>
         {% for b in recente %}
-        <tr>
+        <tr style="cursor:pointer" onclick="window.location='{{ url_for('admin.bestelling_detail', oid=b.id) }}'">
           <td>{{ b.tijdstip[:16] if b.tijdstip else '' }}</td>
           <td>{{ b.bijnaam or b.voornaam or '?' }}</td>
           <td>{{ b.items or 0 }}</td>

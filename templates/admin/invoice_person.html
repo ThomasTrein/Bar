@@ -24,6 +24,20 @@
   </div>
 
   <div class="dash-card">
+    <h2>Winst/Verlies KSA</h2>
+    <table class="admin-table">
+      <tr><td>Omzet (verkoop)</td><td>€{{ "%.2f"|format(omzet) }}</td></tr>
+      <tr><td>Kosten (aankoop)</td><td>€{{ "%.2f"|format(kosten) }}</td></tr>
+      <tr>
+        <td><strong>Winst</strong></td>
+        <td class="{% if winst >= 0 %}text-success{% else %}text-danger{% endif %}">
+          <strong>€{{ "%.2f"|format(winst) }}</strong>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="dash-card">
     <h2>Acties</h2>
     {# Betaling toevoegen #}
     <form method="POST" action="{{ url_for('admin.rekening_betaling', pid=persoon.id) }}"
@@ -49,6 +63,27 @@
     {% endif %}
   </div>
 </div>
+
+{# Individuele bestellingen #}
+{% if bestellingen %}
+<h2 style="margin-bottom:12px">Bestellingen</h2>
+<table class="admin-table" style="margin-bottom:24px">
+  <thead>
+    <tr><th>Datum</th><th>Type</th><th>Items</th><th>Totaal</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for b in bestellingen %}
+    <tr>
+      <td>{{ b.tijdstip[:16] if b.tijdstip else '' }}</td>
+      <td>{% if b.type == 'bond' %}<span class="badge-special">Bond</span>{% else %}Normaal{% endif %}</td>
+      <td>{{ b.items or 0 }}</td>
+      <td>€{{ "%.2f"|format(b.totaal or 0) }}</td>
+      <td><a href="{{ url_for('admin.bestelling_detail', oid=b.id) }}" class="btn-sm btn-secondary">Detail</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 
 {# Betalingen geschiedenis #}
 {% if betalingen %}

@@ -104,6 +104,12 @@
           </div>
           <button type="submit" class="btn-add">Toevoegen</button>
         </form>
+        {% if p.bak_grootte %}
+        <form method="POST" action="{{ url_for('kiosk.bestelling_bak_toevoegen') }}" style="margin-top:6px">
+          <input type="hidden" name="product_id" value="{{ p.id }}">
+          <button type="submit" class="btn-bak">🍺 Bak ({{ p.bak_grootte }})</button>
+        </form>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

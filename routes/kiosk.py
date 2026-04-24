@@ -190,6 +190,28 @@ def bestelling_producten_post():
     return redirect(url_for('kiosk.bestelling_producten'))
 
 
+@kiosk_bp.route('/bestelling/bak-toevoegen', methods=['POST'])
+def bestelling_bak_toevoegen():
+    order = get_order()
+    if not order.get('started'):
+        return redirect(url_for('kiosk.home'))
+    prod_id = request.form.get('product_id', type=int)
+    if prod_id:
+        prod = query("SELECT * FROM products WHERE id=? AND actief=1", (prod_id,), one=True)
+        if prod and prod['bak_grootte']:
+            order['regels'].append({
+                'person_id':    order['current_person_id'],
+                'person_naam':  order['current_person_naam'],
+                'product_id':   prod_id,
+                'product_naam': prod['naam'],
+                'hoeveelheid':  prod['bak_grootte'],
+                'prijs':        prod['verkoop_prijs'],
+                'stock':        prod['stock'],
+            })
+            save_order(order)
+    return redirect(url_for('kiosk.bestelling_producten'))
+
+
 # ─── Bestelling: overzicht & bevestigen ──────────────────────────────────────
 
 @kiosk_bp.route('/bestelling/overzicht')
@@ -412,11 +434,30 @@ def aanvullen_start():
     return redirect(url_for('kiosk.aanvullen'))
 
 
+@kiosk_bp.route('/aanvullen/stop-naam', methods=['POST'])
+def aanvullen_stop_naam():
+    door_data = request.form.get('door_data', '{}')
+    personen = alle_personen()
+    return render_template('kiosk/refill_stop_naam.html',
+                           personen=personen, door_data=door_data)
+
+
 @kiosk_bp.route('/aanvullen/stop', methods=['POST'])
 def aanvullen_stop():
     refill_id = session.get('active_refill')
-    # Verwerk deur-wijzigingen (JSON body van drag-and-drop)
-    wijzigingen = request.get_json(silent=True) or {}
+
+    # Verwerk deur-wijzigingen: ofwel JSON body (legacy) ofwel form data
+    content_type = request.content_type or ''
+    if 'application/json' in content_type:
+        wijzigingen = request.get_json(silent=True) or {}
+        stopper_id = None
+    else:
+        door_data_str = request.form.get('door_data', '{}')
+        try:
+            wijzigingen = json.loads(door_data_str)
+        except (ValueError, TypeError):
+            wijzigingen = {}
+        stopper_id = request.form.get('person_id', type=int)
 
     conn = get_db()
     for prod_id_str, deuren in wijzigingen.items():
@@ -437,9 +478,26 @@ def aanvullen_stop():
             (json.dumps(wijzigingen), refill_id)
         )
 
+    # Bepaal wie gestopt heeft
+    stopper_naam = '?'
+    if stopper_id:
+        p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (stopper_id,), one=True)
+        if p:
+            stopper_naam = p['bijnaam'] or p['voornaam']
+    else:
+        # Zoek op wie de sessie gestart heeft
+        if refill_id:
+            rs = query("SELECT person_id FROM refill_sessions WHERE id=?", (refill_id,), one=True)
+            if rs and rs['person_id']:
+                stopper_id = rs['person_id']
+                p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (stopper_id,), one=True)
+                if p:
+                    stopper_naam = p['bijnaam'] or p['voornaam']
+
     get_fridge_controller().lock_all()
     stop_recording()
-    add_log('aanvulling', 'Aanvulmodus gestopt', referentie_id=refill_id, referentie_type='refill')
+    add_log('aanvulling', f"Aanvulmodus gestopt door {stopper_naam}",
+            stopper_id, refill_id, 'refill')
     session.pop('active_refill', None)
     return redirect(url_for('kiosk.home'))
 
@@ -448,11 +506,51 @@ def aanvullen_stop():
 
 @kiosk_bp.route('/de-bond')
 def de_bond():
-    bond = query("SELECT * FROM persons WHERE is_bond=1", one=True)
+    # Start opname en sla op in sessie, toon dan naamkeuze
+    bond_sess = session.get('bond_session', {})
+    if not bond_sess.get('recording_path'):
+        rec = start_recording('de_bond')
+        session['bond_session'] = {
+            'recording_path': rec.get_relatief_pad(),
+            'person_id': None,
+            'person_naam': None,
+        }
+        session.modified = True
+    return redirect(url_for('kiosk.de_bond_naam'))
+
+
+@kiosk_bp.route('/de-bond/naam')
+def de_bond_naam():
+    if not session.get('bond_session', {}).get('recording_path'):
+        return redirect(url_for('kiosk.de_bond'))
+    personen = alle_personen()
+    return render_template('kiosk/bond_naam.html', personen=personen)
+
+
+@kiosk_bp.route('/de-bond/naam', methods=['POST'])
+def de_bond_naam_post():
+    pid = request.form.get('person_id', type=int)
+    if not pid:
+        return redirect(url_for('kiosk.de_bond_naam'))
+    p = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
+    if not p:
+        return redirect(url_for('kiosk.de_bond_naam'))
+    bond_sess = session.get('bond_session', {})
+    bond_sess['person_id']   = pid
+    bond_sess['person_naam'] = p['bijnaam'] or p['voornaam']
+    session['bond_session']  = bond_sess
+    session.modified = True
+    return redirect(url_for('kiosk.de_bond_producten'))
+
+
+@kiosk_bp.route('/de-bond/producten')
+def de_bond_producten():
+    bond_sess = session.get('bond_session', {})
+    if not bond_sess.get('person_id'):
+        return redirect(url_for('kiosk.de_bond_naam'))
     cats, prods = alle_producten_per_categorie()
-    toon_prijs  = get_setting('prijs_tonen', 'false') == 'true'
-    return render_template('kiosk/bond.html', bond=bond,
-                           categorieen=cats, producten=prods, toon_prijs=toon_prijs)
+    return render_template('kiosk/bond.html', categorieen=cats, producten=prods,
+                           person_naam=bond_sess['person_naam'])
 
 
 @kiosk_bp.route('/de-bond/bevestigen', methods=['POST'])
@@ -460,6 +558,11 @@ def de_bond_bevestigen():
     bond = query("SELECT * FROM persons WHERE is_bond=1", one=True)
     if not bond:
         return redirect(url_for('kiosk.home'))
+
+    bond_sess = session.get('bond_session', {})
+    actor_id   = bond_sess.get('person_id')
+    actor_naam = bond_sess.get('person_naam', '?')
+    rec_pad    = bond_sess.get('recording_path', '')
 
     items = []
     for key, val in request.form.items():
@@ -470,13 +573,12 @@ def de_bond_bevestigen():
                 items.append({'product_id': prod_id, 'hoeveelheid': int(val),
                               'prijs': prod['verkoop_prijs']})
     if not items:
-        return redirect(url_for('kiosk.de_bond'))
+        return redirect(url_for('kiosk.de_bond_producten'))
 
-    rec = start_recording('de_bond')
     conn = get_db()
     cur  = conn.execute(
         "INSERT INTO orders (type, gestart_door_id, video_path) VALUES ('bond',?,?)",
-        (bond['id'], rec.get_relatief_pad())
+        (actor_id or bond['id'], rec_pad)
     )
     order_id = cur.lastrowid
     deuren = set()
@@ -493,15 +595,18 @@ def de_bond_bevestigen():
     for item in items:
         consume_stock(item['product_id'], item['hoeveelheid'])
 
-    add_log('bestelling', f"De Bond bestelling #{order_id}", bond['id'], order_id, 'order')
+    add_log('bestelling', f"De Bond bestelling #{order_id} door {actor_naam}",
+            actor_id or bond['id'], order_id, 'order')
+    session['bond_session'] = {}
     session['active_order'] = {'order_id': order_id, 'deuren_nodig': list(deuren),
-                                'recording_path': rec.get_relatief_pad(), 'is_bond': True, 'items': items}
+                                'recording_path': rec_pad, 'is_bond': True, 'items': items}
 
     timeout = int(get_setting('deur_timeout_sec', '120'))
     get_fridge_controller().unlock_doors(list(deuren), timeout_sec=timeout)
     return redirect(url_for('kiosk.bestelling_wachten'))
 
-
+
+
 
 # ─── De Bond - terugzetten ────────────────────────────────────────────────────
 
@@ -526,46 +631,15 @@ def de_bond_terugzetten_post():
     return redirect(url_for('kiosk.home'))
 
 
-# ─── Bak bier bestellen ───────────────────────────────────────────────────────
+# ─── Bak bier bestellen (verouderd - enkel via bestelling/bak-toevoegen) ──────
 
 @kiosk_bp.route('/bak-bestellen')
 def bak_bestellen():
-    personen = alle_personen()
-    producten = query("SELECT * FROM products WHERE actief=1 ORDER BY naam")
-    pid = request.args.get('person_id', type=int)
-    persoon = None
-    if pid:
-        persoon = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
-    return render_template('kiosk/bak_bestellen.html', personen=personen, producten=producten,
-                           persoon_id=pid,
-                           persoon_naam=(persoon['bijnaam'] or persoon['voornaam']) if persoon else None)
+    return redirect(url_for('kiosk.home'))
 
 
 @kiosk_bp.route('/bak-bestellen/bevestigen', methods=['POST'])
 def bak_bestellen_bevestigen():
-    from services.fifo import add_batch
-    pid = request.form.get('person_id', type=int)
-    if not pid:
-        return redirect(url_for('kiosk.bak_bestellen'))
-
-    aankoop_id = execute("INSERT INTO shop_purchases (person_id) VALUES (?)", (pid,))
-    n = 0
-    for key, val in request.form.items():
-        if key.startswith('qty_') and val and int(val) > 0:
-            prod_id = int(key.replace('qty_', ''))
-            qty   = int(val)
-            prijs_bak = float(request.form.get(f'prijs_{prod_id}', 0) or 0)
-            prijs_per_stuk = round(prijs_bak / qty, 4) if qty else 0
-            execute(
-                "INSERT INTO shop_purchase_items (aankoop_id,product_id,hoeveelheid,aankoop_prijs_per_stuk) VALUES (?,?,?,?)",
-                (aankoop_id, prod_id, qty, prijs_per_stuk)
-            )
-            add_batch(prod_id, qty, prijs_per_stuk, aankoop_id)
-            n += 1
-
-    p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
-    naam = (p['bijnaam'] or p['voornaam']) if p else '?'
-    add_log('stock', f"Bak bestelling: {n} producten door {naam}", pid, aankoop_id, 'shop_purchase')
     return redirect(url_for('kiosk.home'))
 
 

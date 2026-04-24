@@ -65,7 +65,7 @@
 
 {% block scripts %}
 <script>
-  async function saveDoors() {
+  function buildDoorMap() {
     const map = {};
     document.querySelectorAll('.deur-check').forEach(cb => {
       const pid = cb.dataset.product;
@@ -73,21 +73,29 @@
       if (!map[pid]) map[pid] = [];
       if (cb.checked) map[pid].push(d);
     });
-    await fetch('/aanvullen/stop', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(map)
-    });
-    window.location = '/';
+    return JSON.stringify(map);
   }
-  async function stopAanvullen() {
+
+  function submitStop(doorData) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/aanvullen/stop-naam';
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'door_data';
+    inp.value = doorData;
+    form.appendChild(inp);
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  function saveDoors() {
+    submitStop(buildDoorMap());
+  }
+
+  function stopAanvullen() {
     if (!confirm('Stoppen zonder wijzigingen op te slaan?')) return;
-    await fetch('/aanvullen/stop', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: '{}'
-    });
-    window.location = '/';
+    submitStop('{}');
   }
 </script>
 {% endblock %}

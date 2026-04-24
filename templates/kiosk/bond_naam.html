@@ -1,0 +1,29 @@
+{% extends "base_kiosk.html" %}
+{% block title %}De Bond — KSA Bar{% endblock %}
+{% block content %}
+<div class="page-screen">
+  <div class="page-header">
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <h1>🏠 De Bond</h1>
+  </div>
+  <p class="page-intro">Wie haalt er iets voor De Bond?</p>
+
+  <div class="personen-grid" id="personenGrid">
+    {% for p in personen %}
+    <form method="POST" action="{{ url_for('kiosk.de_bond_naam_post') }}">
+      <input type="hidden" name="person_id" value="{{ p.id }}">
+      <button type="submit" class="persoon-kaart">
+        <div class="persoon-foto">
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

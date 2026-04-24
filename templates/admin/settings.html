@@ -37,8 +37,8 @@
   <div class="form-group">
     <label>Prijs tonen op kiosk</label>
     <select name="prijs_tonen" class="form-input">
-      <option value="1" {% if settings.get('prijs_tonen') not in ('false','0','') %}selected{% endif %}>Ja</option>
-      <option value="0" {% if settings.get('prijs_tonen') in ('false','0') %}selected{% endif %}>Nee</option>
+      <option value="1" {% if settings.get('prijs_tonen') == 'true' %}selected{% endif %}>Ja</option>
+      <option value="0" {% if settings.get('prijs_tonen') != 'true' %}selected{% endif %}>Nee</option>
     </select>
   </div>
   <button type="submit" class="btn-primary">Opslaan</button>
