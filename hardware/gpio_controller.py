@@ -106,39 +106,81 @@ class FridgeController:
 
     def unlock_doors(self, deuren: list, timeout_sec: int = 120, on_complete=None):
         """Start een individuele deur-cyclus per deur (in aparte thread)."""
-        for deur in deuren:
-            if deur in self.doors:
-                t = threading.Thread(
-                    target=self._door_cycle,
-                    args=(deur, timeout_sec, on_complete),
-                    daemon=True
-                )
+        groups = [{d} for d in deuren]
+        self.unlock_door_groups(groups, timeout_sec=timeout_sec, on_complete=on_complete)
+
+    def unlock_door_groups(self, groups: list, timeout_sec: int = 120, on_complete=None):
+        """
+        Slim ontgrendelen: groups is een lijst van sets, waarbij elke set de
+        alternatieve deuren voor één product bevat.
+        Zodra één deur van een groep opengaat, worden de overige deuren van
+        die groep vergrendeld als ze nergens anders meer voor nodig zijn.
+        """
+        if not groups:
+            return
+
+        all_doors = set()
+        for g in groups:
+            all_doors.update(g)
+
+        satisfied = set()   # indices van voldane groepen
+        state_lock = threading.Lock()
+
+        def is_still_needed(door_id):
+            """True als deur nog nodig is voor minstens één onvoldane groep."""
+            for i, g in enumerate(groups):
+                if door_id in g and i not in satisfied:
+                    return True
+            return False
+
+        def on_door_opened(door_id):
+            """Markeer groepen als voldaan; vergrendel deuren die niet meer nodig zijn."""
+            to_lock = []
+            with state_lock:
+                for i, g in enumerate(groups):
+                    if door_id in g:
+                        satisfied.add(i)
+                for d in all_doors:
+                    if d != door_id and not is_still_needed(d):
+                        ctrl = self.doors.get(d)
+                        if ctrl and ctrl.is_unlocked() and not ctrl.is_open():
+                            to_lock.append(d)
+            for d in to_lock:
+                self.doors[d].lock()
+                print(f"[AUTO-LOCK] Deur {d} vergrendeld (product al gepakt via andere deur)")
+
+        def door_cycle(door_id):
+            ctrl = self.doors[door_id]
+            ctrl.unlock()
+
+            start = time.time()
+            while not ctrl.is_open():
+                if time.time() - start > timeout_sec:
+                    print(f"[TIMEOUT] Deur {door_id}: timeout (niet geopend)")
+                    ctrl.lock()
+                    self._fire_event('timeout', door_id)
+                    if on_complete:
+                        on_complete(door_id, False)
+                    return
+                if not ctrl.is_unlocked():
+                    # Vergrendeld door on_door_opened (andere deur van zelfde groep geopend)
+                    return
+                time.sleep(0.1)
+
+            on_door_opened(door_id)
+
+            while ctrl.is_open():
+                time.sleep(0.1)
+
+            ctrl.lock()
+            self._fire_event('complete', door_id)
+            if on_complete:
+                on_complete(door_id, True)
+
+        for door_id in all_doors:
+            if door_id in self.doors:
+                t = threading.Thread(target=door_cycle, args=(door_id,), daemon=True)
                 t.start()
-
-    def _door_cycle(self, deur: int, timeout_sec: int, on_complete):
-        ctrl = self.doors[deur]
-        ctrl.unlock()
-
-        # Wacht tot deur open gaat
-        start = time.time()
-        while not ctrl.is_open():
-            if time.time() - start > timeout_sec:
-                print(f"[TIMEOUT] Deur {deur}: timeout (niet geopend)")
-                ctrl.lock()
-                self._fire_event('timeout', deur)
-                if on_complete:
-                    on_complete(deur, False)
-                return
-            time.sleep(0.1)
-
-        # Wacht tot deur gesloten is
-        while ctrl.is_open():
-            time.sleep(0.1)
-
-        ctrl.lock()
-        self._fire_event('complete', deur)
-        if on_complete:
-            on_complete(deur, True)
 
     def unlock_all(self):
         for ctrl in self.doors.values():

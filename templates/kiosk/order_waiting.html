@@ -18,17 +18,10 @@
     </div>
 
     <div id="klaar-msg" class="klaar-msg hidden">
-      <div class="klaar-icon">✅</div>
       <div>Bedankt! Bestelling geregistreerd.</div>
-      <div style="display:flex;gap:16px;justify-content:center;margin-top:16px;flex-wrap:wrap">
-        <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-primary">🛒 Nieuwe bestelling</a>
-        <a href="{{ url_for('kiosk.home') }}" class="btn-secondary">← Terug naar home</a>
-      </div>
+      <div style="margin-top:12px;color:var(--text-dim);font-size:14px">Je wordt over <span id="countdown">5</span> seconden teruggestuurd…</div>
     </div>
 
-    <div style="margin-top:24px;text-align:center">
-      <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-secondary">🛒 Nieuwe bestelling starten</a>
-    </div>
   </div>
 </div>
 {% endblock %}
@@ -66,6 +59,16 @@
         document.getElementById('waitTitle').textContent = 'Alles klaar!';
         document.getElementById('waitMsg').style.display = 'none';
         document.getElementById('waitIcon').textContent = '✅';
+        let secs = 5;
+        const countEl = document.getElementById('countdown');
+        const timer = setInterval(() => {
+          secs--;
+          if (countEl) countEl.textContent = secs;
+          if (secs <= 0) {
+            clearInterval(timer);
+            window.location.href = '/';
+          }
+        }, 1000);
         return;
       }
     } catch(e) {}

@@ -262,6 +262,7 @@ def bestelling_bevestigen():
     order_id = cursor.lastrowid
 
     deuren = set()
+    product_door_map = {}   # product_id → set van deuren
     for item in order['regels']:
         conn.execute(
             """INSERT INTO order_items
@@ -270,8 +271,12 @@ def bestelling_bevestigen():
             (order_id, item['person_id'], item['product_id'],
              item['hoeveelheid'], item['prijs'])
         )
-        for row in conn.execute("SELECT deur FROM product_doors WHERE product_id=?", (item['product_id'],)):
+        pid = item['product_id']
+        if pid not in product_door_map:
+            product_door_map[pid] = set()
+        for row in conn.execute("SELECT deur FROM product_doors WHERE product_id=?", (pid,)):
             deuren.add(row['deur'])
+            product_door_map[pid].add(row['deur'])
 
     conn.commit()
     conn.close()
@@ -291,7 +296,8 @@ def bestelling_bevestigen():
     def on_done(deur, opened):
         add_log('deur', f"Deur {deur} {'OK' if opened else 'timeout'}", referentie_id=order_id, referentie_type='order')
 
-    fridge.unlock_doors(list(deuren), timeout_sec=timeout, on_complete=on_done)
+    groups = [s for s in product_door_map.values() if s]
+    fridge.unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done)
     return redirect(url_for('kiosk.bestelling_wachten'))
 
 
@@ -582,13 +588,18 @@ def de_bond_bevestigen():
     )
     order_id = cur.lastrowid
     deuren = set()
+    product_door_map = {}   # product_id → set van deuren
     for item in items:
         conn.execute(
             "INSERT INTO order_items (order_id,person_id,product_id,hoeveelheid,verkoop_prijs_snapshot) VALUES (?,?,?,?,?)",
             (order_id, bond['id'], item['product_id'], item['hoeveelheid'], item['prijs'])
         )
-        for row in conn.execute("SELECT deur FROM product_doors WHERE product_id=?", (item['product_id'],)):
+        pid = item['product_id']
+        if pid not in product_door_map:
+            product_door_map[pid] = set()
+        for row in conn.execute("SELECT deur FROM product_doors WHERE product_id=?", (pid,)):
             deuren.add(row['deur'])
+            product_door_map[pid].add(row['deur'])
     conn.commit()
     conn.close()
 
@@ -602,7 +613,8 @@ def de_bond_bevestigen():
                                 'recording_path': rec_pad, 'is_bond': True, 'items': items}
 
     timeout = int(get_setting('deur_timeout_sec', '120'))
-    get_fridge_controller().unlock_doors(list(deuren), timeout_sec=timeout)
+    groups = [s for s in product_door_map.values() if s]
+    get_fridge_controller().unlock_door_groups(groups, timeout_sec=timeout)
     return redirect(url_for('kiosk.bestelling_wachten'))
 
 
