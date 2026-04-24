@@ -1,5 +1,9 @@
 ## Dingen om toe te voegen
-
+De logs:
+Wanneer moet er gefilmd worden en hoelang?
+- vanaf er op bestelling starten wordt geklikt dan moet er gefilmd worden tot dat alle sloten dicht zijn en de reed sensors dicht zijn.
+- als er op bestelling starten wordt geklikt dan moet er gefilmd worden en ze gaan terug naar het homescreen via eender welke knop dan moet er niet meer gefilmd worden.
+- 
 ---
 
 ## Te bespreken
