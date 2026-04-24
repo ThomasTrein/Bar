@@ -5,6 +5,15 @@
 
 ---
 
+## Te bespreken
+- Wat moet er allemaal gefilmd worden en wat wordt er in de logs geschreven worden.
+- Alle modussen en wanneer moet je je naam selecteren.
+- Crasht er iets?
+- Is er nog ergens data nodig die er niet in zit.
+- Is er een link nodig?
+
+---
+
 ## Dingen die zijn aangepast:
 
 - De bak bestellen optie in het hamburger menu moet weg. Je kan enkel een bak bestellen als je een bestelling start. De functie bak bestellen moet bij het product staan. Onder of naast de knop die al bestaat. De locatie mag je zelf kiezen wat het beste is.
