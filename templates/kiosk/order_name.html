@@ -22,7 +22,8 @@
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.bestelling_extra_persoon_post' if extra else 'kiosk.bestelling_naam_post') }}">
       <input type="hidden" name="person_id" value="{{ p.id }}">
-      <button type="submit" class="persoon-kaart" data-naam="{{ (p.bijnaam or p.voornaam)|lower }}">
+      <button type="submit" class="persoon-kaart"
+              data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
         <div class="persoon-foto">
           {% if p.foto_path %}
             <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
@@ -31,7 +32,7 @@
           {% endif %}
         </div>
         <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
-        {% if p.achternaam %}<div class="persoon-achternaam">{{ p.achternaam }}</div>{% endif %}
+
       </button>
     </form>
     {% endfor %}
@@ -48,10 +49,13 @@
 
 {% block scripts %}
 <script>
-  // Bouw letter nav
+  // Bouw letter nav op basis van eerste letter van bijnaam of voornaam
   const kaarten = document.querySelectorAll('.persoon-kaart');
   const letters = new Set();
-  kaarten.forEach(k => letters.add(k.dataset.naam[0]?.toUpperCase()));
+  kaarten.forEach(k => {
+    const z = k.dataset.zoek || '';
+    if (z[0]) letters.add(z[0].toUpperCase());
+  });
   const nav = document.getElementById('letterNav');
   [...letters].sort().forEach(l => {
     const btn = document.createElement('button');
@@ -62,14 +66,15 @@
   });
 
   function scrollToLetter(l) {
-    const target = [...kaarten].find(k => k.dataset.naam[0]?.toUpperCase() === l);
+    const target = [...kaarten].find(k => (k.dataset.zoek || '')[0]?.toUpperCase() === l);
     if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
   }
 
   function filterPersonen(q) {
     const lq = q.toLowerCase().trim();
     kaarten.forEach(k => {
-      k.closest('form').style.display = (!lq || k.dataset.naam.includes(lq)) ? '' : 'none';
+      const zoek = k.dataset.zoek || '';
+      k.closest('form').style.display = (!lq || zoek.includes(lq)) ? '' : 'none';
     });
   }
 </script>
