@@ -81,6 +81,7 @@ def bestelling_naam_post():
     order['current_person_id']   = pid
     order['current_person_naam'] = naam
     save_order(order)
+    add_log('kiosk', f"Persoon geselecteerd voor bestelling: {naam}", pid)
     return redirect(url_for('kiosk.bestelling_producten'))
 
 
@@ -309,8 +310,13 @@ def bestelling_wachten():
 
 @kiosk_bp.route('/bestelling/annuleren', methods=['POST'])
 def bestelling_annuleren():
+    order = get_order()
+    person_naam = order.get('current_person_naam') or '?'
+    order_id = order.get('order_id')
     stop_recording()
-    add_log('bestelling', 'Bestelling geannuleerd')
+    add_log('bestelling', f"Bestelling geannuleerd (persoon: {person_naam})",
+            order.get('current_person_id'), order_id,
+            'bestelling' if order_id else None)
     session.pop('active_order', None)
     return redirect(url_for('kiosk.home'))
 
@@ -563,6 +569,7 @@ def de_bond_producten():
 def de_bond_bevestigen():
     bond = query("SELECT * FROM persons WHERE is_bond=1", one=True)
     if not bond:
+        add_log('systeem', 'De Bond-persoon niet gevonden — bestelling geannuleerd')
         return redirect(url_for('kiosk.home'))
 
     bond_sess = session.get('bond_session', {})
@@ -614,7 +621,12 @@ def de_bond_bevestigen():
 
     timeout = int(get_setting('deur_timeout_sec', '120'))
     groups = [s for s in product_door_map.values() if s]
-    get_fridge_controller().unlock_door_groups(groups, timeout_sec=timeout)
+
+    def on_done_bond(deur, opened):
+        add_log('deur', f"Deur {deur} {'OK' if opened else 'timeout'}",
+                actor_id or bond['id'], order_id, 'order')
+
+    get_fridge_controller().unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done_bond)
     return redirect(url_for('kiosk.bestelling_wachten'))
 
 

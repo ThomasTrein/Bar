@@ -41,6 +41,21 @@ def create_app():
         return send_from_directory(UPLOADS_DIR, pad)
 
     add_log('systeem', 'KSA Bar gestart')
+
+    from config import IS_RASPBERRY_PI
+    if IS_RASPBERRY_PI:
+        try:
+            import subprocess as _sp
+            _sp.run(['ffmpeg', '-version'], capture_output=True, check=True, timeout=5)
+            add_log('systeem', 'ffmpeg beschikbaar')
+        except Exception:
+            add_log('systeem', 'ffmpeg niet gevonden — camera niet beschikbaar')
+        try:
+            from gpiozero import OutputDevice  # noqa
+            add_log('systeem', 'GPIO beschikbaar')
+        except Exception:
+            add_log('systeem', 'GPIO niet beschikbaar — stub modus')
+
     return app
 
 

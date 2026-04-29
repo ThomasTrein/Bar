@@ -110,3 +110,48 @@ Wanneer moet er gefilmd worden en hoelang?
 - **"Opnieuw bestellen"** knop die de laatste bestelling van een persoon klaar zet
 - **Deur-status badge op home** (🔒/🔓) zodat iemand ziet of een frigo nog open staat
 - **Categorie-volgorde drag & drop** in admin i.p.v. een nummerveld
+
+---
+
+## 📹 Video-opnames
+
+De app filmt via een USB-webcam (ffmpeg, v4l2) bij de volgende gebeurtenissen:
+
+| Gebeurtenis | Opname start | Opname stopt |
+|---|---|---|
+| **Bestelling** | Klik op "Bestelling starten" | Alle sloten gesloten + reed-sensors dicht |
+| **Baravond** | Activatie baravond | Deactivatie baravond |
+| **Aanvulmodus** | Start aanvulsessie | Einde aanvulsessie |
+| **De Bond** | Start De Bond-transactie | Einde transactie |
+
+**Technische details:**
+- Resolutie: 1280×720px — Framerate: 15 FPS — Codec: H.264 (libx264)
+- Opslaglocatie: `/videos/JJJJ/MM/DD/tijdstip_naam.mp4`
+- Bewaarperiode: 40 dagen (configureerbaar via instellingen)
+- Op niet-Raspberry Pi systemen: stub-modus (leeg bestand, geen echte opname)
+
+---
+
+## 📋 Logging
+
+Alle significante gebeurtenissen worden opgeslagen in de SQLite-database (`ksa_bar.db`, tabel `logs`). Er zijn geen log-levels (geen INFO/WARNING/ERROR) — enkel categorieën.
+
+| Type | Wat wordt gelogd |
+|---|---|
+| `systeem` | Opstart van de applicatie, aanmaken van een nieuw persoon |
+| `admin` | Inloggen/uitloggen, producten/personen beheren (incl. oud→nieuw waarden voor naam/prijs/velden), instellingen wijzigen (incl. welke instelling en oud→nieuw waarde) |
+| `bestelling` | Plaatsen en annuleren van bestellingen (incl. persoonsnaam bij annulering) |
+| `deur` | Deur ontgrendeld/vergrendeld, inclusief timeout-status per deur — nu ook voor De Bond-bestellingen |
+| `baravond` | Start en stop van een baravond (incl. naam van de activerende persoon) |
+| `aanvulling` | Start en stop van een aanvulsessie |
+| `betaling` | Betalingen en rekening-afsluitingen (incl. bedrag) |
+| `stock` | Winkelaankopen en stock-teruggaves (De Bond) |
+
+**Velden per log-entry:** tijdstip, type, beschrijving, person_id, referentie_id, referentie_type  
+**Bewaarperiode logs:** onbeperkt (geen automatische opruiming)
+
+| Type | Wat wordt gelogd |
+|---|---|
+| `opname` | Start en stop van elke video-opname (incl. bestandspad) |
+| `kiosk` | Persoon geselecteerd voor een bestelling |
+| `systeem` | Opstart, nieuw persoon aangemaakt, hardware-status (ffmpeg, GPIO), De Bond niet gevonden |

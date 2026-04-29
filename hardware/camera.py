@@ -44,6 +44,11 @@ class Recording:
                 print(f"[REC] Opname gestart: {self.bestand}")
             except FileNotFoundError:
                 print("[WARN] ffmpeg niet gevonden")
+                try:
+                    from database.db import add_log
+                    add_log('systeem', 'Camera-fout: ffmpeg niet gevonden — opname niet mogelijk')
+                except Exception:
+                    pass
         else:
             # Development stub
             open(self.pad, 'wb').close()
@@ -72,6 +77,11 @@ def start_recording(naam: str) -> Recording:
         rec = Recording(naam)
         rec.start()
         _active = rec
+        try:
+            from database.db import add_log
+            add_log('opname', f"Opname gestart: {rec.get_relatief_pad()}")
+        except Exception:
+            pass
         return rec
 
 
@@ -82,6 +92,11 @@ def stop_recording() -> str:
             _active.stop()
             pad = _active.get_relatief_pad()
             _active = None
+            try:
+                from database.db import add_log
+                add_log('opname', f"Opname gestopt: {pad}")
+            except Exception:
+                pass
             return pad
         return ''
 

@@ -140,7 +140,7 @@ def product_nieuw():
 @admin_bp.route('/producten/<int:pid>/bewerken', methods=['POST'])
 @login_required
 def product_bewerken(pid):
-    old = query("SELECT foto_path, stock, aankoop_prijs FROM products WHERE id=?", (pid,), one=True)
+    old = query("SELECT naam, foto_path, stock, aankoop_prijs, verkoop_prijs FROM products WHERE id=?", (pid,), one=True)
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products') \
                 or (old['foto_path'] if old else '')
     naam  = request.form.get('naam', '').strip()
@@ -162,7 +162,13 @@ def product_bewerken(pid):
             execute("INSERT INTO product_doors (product_id,deur) VALUES (?,?)", (pid, int(d)))
         except Exception:
             pass
-    add_log('admin', f"Product #{pid} bijgewerkt: {naam}")
+    wijzigingen = []
+    if old and old['naam'] != naam:
+        wijzigingen.append(f"naam: {old['naam']} → {naam}")
+    if old and prijs is not None and round(float(old['verkoop_prijs'] or 0), 2) != round(prijs, 2):
+        wijzigingen.append(f"prijs: €{float(old['verkoop_prijs'] or 0):.2f} → €{prijs:.2f}")
+    detail = f" ({', '.join(wijzigingen)})" if wijzigingen else ""
+    add_log('admin', f"Product #{pid} bijgewerkt: {naam}{detail}")
     return redirect(url_for('admin.producten'))
 
 
@@ -257,13 +263,21 @@ def persoon_bewerken(pid):
 
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PERSONS_DIR, 'persons') \
                 or p['foto_path']
+    nieuw_voornaam   = request.form.get('voornaam', '').strip()
+    nieuw_achternaam = request.form.get('achternaam', '').strip()
+    nieuw_bijnaam    = request.form.get('bijnaam', '').strip()
+    nieuw_actief     = 1 if request.form.get('actief') else 0
     execute("UPDATE persons SET voornaam=?,achternaam=?,bijnaam=?,actief=?,foto_path=? WHERE id=?",
-            (request.form.get('voornaam','').strip(),
-             request.form.get('achternaam','').strip(),
-             request.form.get('bijnaam','').strip(),
-             1 if request.form.get('actief') else 0,
-             foto_path, pid))
-    add_log('admin', f"Persoon #{pid} bijgewerkt")
+            (nieuw_voornaam, nieuw_achternaam, nieuw_bijnaam, nieuw_actief, foto_path, pid))
+    wijzigingen = []
+    if p['voornaam'] != nieuw_voornaam:
+        wijzigingen.append(f"voornaam: {p['voornaam']} → {nieuw_voornaam}")
+    if (p['bijnaam'] or '') != nieuw_bijnaam:
+        wijzigingen.append(f"bijnaam: {p['bijnaam'] or ''} → {nieuw_bijnaam}")
+    if p['actief'] != nieuw_actief:
+        wijzigingen.append(f"actief: {'ja' if p['actief'] else 'nee'} → {'ja' if nieuw_actief else 'nee'}")
+    detail = f" ({', '.join(wijzigingen)})" if wijzigingen else ""
+    add_log('admin', f"Persoon #{pid} bijgewerkt{detail}", pid)
     return redirect(url_for('admin.personen'))
 
 
@@ -826,13 +840,25 @@ def hardware_test():
 @login_required
 def instellingen():
     if request.method == 'POST':
+        wijzigingen = []
         for k in ['admin_password','deur_timeout_sec','screensaver_timeout_min',
                   'admin_logout_min','video_bewaar_dagen','pi_reboot_tijd']:
             v = request.form.get(k, '').strip()
             if v:
+                oud = get_setting(k, '')
+                if oud != v:
+                    if k == 'admin_password':
+                        wijzigingen.append('wachtwoord gewijzigd')
+                    else:
+                        wijzigingen.append(f"{k}: {oud} → {v}")
                 set_setting(k, v)
-        set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') == '1' else 'false')
-        add_log('admin', 'Instellingen gewijzigd')
+        nieuw_prijs = 'true' if request.form.get('prijs_tonen') == '1' else 'false'
+        oud_prijs   = get_setting('prijs_tonen', 'false')
+        if oud_prijs != nieuw_prijs:
+            wijzigingen.append(f"prijs_tonen: {oud_prijs} → {nieuw_prijs}")
+        set_setting('prijs_tonen', nieuw_prijs)
+        detail = f": {', '.join(wijzigingen)}" if wijzigingen else " (geen wijzigingen)"
+        add_log('admin', f"Instellingen gewijzigd{detail}")
         return redirect(url_for('admin.instellingen'))
     all_s = {r['sleutel']: r['waarde'] for r in query("SELECT sleutel,waarde FROM settings")}
     fout = request.args.get('fout')
