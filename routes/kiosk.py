@@ -153,6 +153,7 @@ def bestelling_producten():
     return render_template('kiosk/order_products.html',
                            order=order, categorieen=cats, producten=prods,
                            toon_prijs=toon_prijs,
+                           product_kolommen=int(get_setting('product_kolommen', '2')),
                            blocked_prod_ids=blocked_prod_ids,
                            blocked_cat_ids=blocked_cat_ids)
 

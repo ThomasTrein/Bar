@@ -68,7 +68,7 @@
                                          | rejectattr('id', 'in', blocked_prod_ids) | list %}
   {% if cat_prods_zichtbaar %}
   <div class="product-grid cat-panel" id="cat-{{ cat.id }}"
-       style="{% if not ns2.first_visible %}display:none{% endif %}">
+       style="{% if not ns2.first_visible %}display:none;{% endif %}grid-template-columns:repeat({{ product_kolommen }},1fr)">
     {% set ns2.first_visible = False %}
     {% for p in cat_prods_zichtbaar %}
     <div class="product-kaart {% if (p.stock or 0) <= 0 %}product-leeg{% endif %}">

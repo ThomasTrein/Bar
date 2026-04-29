@@ -33,6 +33,7 @@ DEFAULT_SETTINGS = {
     'screensaver_timeout_min': '2',
     'admin_logout_min':        '10',
     'prijs_tonen':             'false',
+    'product_kolommen':        '2',
     'video_bewaar_dagen':      '40',
     'pi_reboot_tijd':          '06:30',
 }

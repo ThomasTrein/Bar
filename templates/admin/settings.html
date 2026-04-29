@@ -41,6 +41,12 @@
       <option value="0" {% if settings.get('prijs_tonen') != 'true' %}selected{% endif %}>Nee</option>
     </select>
   </div>
+  <div class="form-group">
+    <label>Aantal dranken naast elkaar (bestellingsscherm)</label>
+    <input type="number" name="product_kolommen"
+           value="{{ settings.get('product_kolommen', '2') }}"
+           min="1" max="6" class="form-input">
+  </div>
   <button type="submit" class="btn-primary">Opslaan</button>
 </form>
 
