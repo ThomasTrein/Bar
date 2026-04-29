@@ -155,3 +155,66 @@ Alle significante gebeurtenissen worden opgeslagen in de SQLite-database (`ksa_b
 | `opname` | Start en stop van elke video-opname (incl. bestandspad) |
 | `kiosk` | Persoon geselecteerd voor een bestelling |
 | `systeem` | Opstart, nieuw persoon aangemaakt, hardware-status (ffmpeg, GPIO), De Bond niet gevonden |
+
+---
+
+## 🧪 Test Rapport
+
+Volledig getest op 29/04/2026. Alle 47+ routes getest (kiosk, admin, API).
+
+### 🔴 CRASH
+
+**`GET /admin/bestellingen/<niet-bestaand-id>` → 500 Internal Server Error**
+
+In `routes/admin.py` is er geen null-check in `bestelling_detail`:
+```python
+def bestelling_detail(oid):
+    order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
+    # ❌ order kan None zijn — template crasht op order.id, order.tijdstip etc.
+    return render_template('admin/order_detail.html', order=order, ...)
+```
+Als je via de URL een niet-bestaand bestelling-ID invult, krijg je een harde 500-fout.
+
+---
+
+### 🟠 SECURITY PROBLEEM
+
+**Hardware API-routes zijn bereikbaar zonder authenticatie**
+
+De volgende endpoints vereisen **geen login**:
+- `POST /api/hardware-test/deur/1/unlock`
+- `POST /api/hardware-test/deur/1/lock`
+- `POST /api/hardware-test/deur/1/simulate-open`
+- `POST /api/hardware-test/deur/1/simulate-close`
+- (idem voor deur 2 en 3)
+
+Iedereen die het IP-adres kent kan de koelkastdeuren ontgrendelen zonder wachtwoord.
+
+---
+
+### 🟡 FUNCTIONELE BUGS
+
+**1. "Actief" checkbox bij nieuw product heeft geen effect**
+
+In `templates/admin/products.html` staat een checkbox "Actief" bij het aanmaken van een nieuw product. In `routes/admin.py` wordt dit veld echter nergens uitgelezen bij `product_nieuw()` — het product wordt altijd als actief aangemaakt, ook als de checkbox uitgevinkt staat.
+
+**2. Wachtpagina loopt vast als product geen deur gekoppeld heeft**
+
+Als een product geen deur gekoppeld heeft, is `deuren_nodig = []`. De `/api/deur-status` berekent dan:
+```python
+alle_klaar = bool([]) and all(...)  # = altijd False
+```
+De wachtpagina blijft eindeloos pollen en de gebruiker zit vast zonder terugknop.
+
+---
+
+### ℹ️ OPMERKINGEN
+
+- **Admin wachtwoord** in de database staat op `admin`. De standaard config (`config.py`) stelt `admin123` in als standaard, maar omdat de database al bestaat wordt die standaard niet meer toegepast. Dit kan verwarrend zijn bij een nieuwe installatie.
+- **`GET /bestelling/wachten`** heeft geen sessiecheck — als je er direct naartoe navigeert zonder actieve bestelling, laadt de pagina leeg zonder foutmelding.
+
+---
+
+### ✅ Alles wat wél correct werkt
+
+Kiosk (home, naam, producten, overzicht, wachten, baravond, aanvullen, De Bond, winkelaankoop, stock), alle admin-pagina's (dashboard, producten, categorieën, personen, bestellingen, rekening, baravond, winst, logs, database viewer, hardware test, instellingen, backup), Excel/PDF-export, FIFO stock engine, hardware stub-modus, login/logout flow.
