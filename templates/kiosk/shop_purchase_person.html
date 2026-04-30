@@ -8,9 +8,12 @@
   </div>
 
   <h2 style="padding:16px 16px 8px">Wie heeft de aankoop gedaan?</h2>
-  <div class="personen-grid" id="personenGrid">
+
+  <div class="personen-grid"id="personenGrid"
+       style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
-    <a href="{{ url_for('kiosk.winkelaankoop_producten', pid=p.id) }}" class="persoon-kaart">
+    <a href="{{ url_for('kiosk.winkelaankoop_producten', pid=p.id) }}" class="persoon-kaart"
+       data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
       <div class="persoon-foto">
         {% if p.foto_path %}
           <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
@@ -23,4 +26,8 @@
     {% endfor %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
 {% endblock %}

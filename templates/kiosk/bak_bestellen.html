@@ -8,17 +8,19 @@
   </div>
   <p class="page-intro">Registreer een bak (of doos) die je hebt aangekocht. Vul het aantal stuks en de totale prijs per product in.</p>
 
-  {# Stap 1: persoon kiezen #}
   {% if not persoon_id %}
   <h2 style="padding:16px 16px 8px; font-size:18px">Wie heeft de bak gekocht?</h2>
-  <div class="personen-grid">
+
+  <div class="personen-grid"id="personenGrid"
+       style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="GET" action="{{ url_for('kiosk.bak_bestellen') }}">
       <input type="hidden" name="person_id" value="{{ p.id }}">
-      <button type="submit" class="persoon-kaart">
+      <button type="submit" class="persoon-kaart"
+              data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
         <div class="persoon-foto">
           {% if p.foto_path %}
-            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
           {% else %}
             <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
           {% endif %}
@@ -62,6 +64,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
 <script>
   function berekenPrijs(pid) {
     const qty   = parseFloat(document.querySelector(`[name="qty_${pid}"]`).value) || 0;

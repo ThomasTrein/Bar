@@ -374,10 +374,12 @@ def baravond():
 
     session_person_id = session.get('baravond_person_id')
     stop_person_id = session.get('baravond_stop_person_id')
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/bar_evening.html',
                            personen=personen, producten=producten,
                            actief_id=actief_id, session_person_id=session_person_id,
-                           stop_person_id=stop_person_id)
+                           stop_person_id=stop_person_id,
+                           persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/baravond/reset-naam', methods=['POST'])
@@ -451,8 +453,10 @@ def aanvullen():
            WHERE p.actief=1 GROUP BY p.id ORDER BY p.naam"""
     )
     actief_id = session.get('active_refill')
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/refill.html',
-                           personen=personen, producten=producten, actief_id=actief_id)
+                           personen=personen, producten=producten, actief_id=actief_id,
+                           persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/aanvullen/start', methods=['POST'])
@@ -476,8 +480,10 @@ def aanvullen_start():
 def aanvullen_stop_naam():
     door_data = request.form.get('door_data', '{}')
     personen = alle_personen()
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/refill_stop_naam.html',
-                           personen=personen, door_data=door_data)
+                           personen=personen, door_data=door_data,
+                           persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/aanvullen/stop', methods=['POST'])
@@ -551,7 +557,9 @@ def de_bond_naam():
     if not session.get('bond_session', {}).get('recording_path'):
         return redirect(url_for('kiosk.de_bond'))
     personen = alle_personen()
-    return render_template('kiosk/bond_naam.html', personen=personen)
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
+    return render_template('kiosk/bond_naam.html', personen=personen,
+                           persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/de-bond/naam', methods=['POST'])
@@ -681,7 +689,9 @@ def bak_bestellen_bevestigen():
 @kiosk_bp.route('/winkelaankoop')
 def winkelaankoop():
     """Stap 1: persoon selecteren."""
-    return render_template('kiosk/shop_purchase_person.html', personen=alle_personen())
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
+    return render_template('kiosk/shop_purchase_person.html', personen=alle_personen(),
+                           persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/winkelaankoop/<int:pid>')

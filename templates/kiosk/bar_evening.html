@@ -11,15 +11,21 @@
   {# STAP 1: naam selecteren #}
   {% if not session_person_id %}
   <p class="page-intro">Selecteer jouw naam om baravond te starten.</p>
-  <div class="personen-grid">
+
+  <div class="personen-grid"id="personenGrid"
+       style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.baravond') }}">
       <input type="hidden" name="actie" value="kies_naam">
       <input type="hidden" name="person_id" value="{{ p.id }}">
-      <button type="submit" class="persoon-kaart">
+      <button type="submit" class="persoon-kaart"
+              data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
         <div class="persoon-foto">
-          {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
-          {% else %}<span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>{% endif %}
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
         </div>
         <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
       </button>
@@ -59,15 +65,21 @@
 
   {% if not stop_person_id %}
   <p class="page-intro">Selecteer wie de baravond stopt.</p>
-  <div class="personen-grid">
+
+  <div class="personen-grid"id="personenGrid"
+       style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.baravond') }}">
       <input type="hidden" name="actie" value="kies_stop_naam">
       <input type="hidden" name="person_id" value="{{ p.id }}">
-      <button type="submit" class="persoon-kaart">
+      <button type="submit" class="persoon-kaart"
+              data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
         <div class="persoon-foto">
-          {% if p.foto_path %}<img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="">
-          {% else %}<span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>{% endif %}
+          {% if p.foto_path %}
+            <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
+          {% else %}
+            <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
+          {% endif %}
         </div>
         <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
       </button>
@@ -97,4 +109,8 @@
   {% endif %}
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
 {% endblock %}
