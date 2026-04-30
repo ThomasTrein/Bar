@@ -2,7 +2,7 @@
 {% block title %}Hardware test — KSA Bar Admin{% endblock %}
 {% block content %}
 <div class="admin-page-header">
-  <h1>🔧 Hardware test</h1>
+  <h1>Hardware test</h1>
 </div>
 
 <div class="hw-grid">
@@ -20,10 +20,10 @@
       </div>
     </div>
     <div class="hw-buttons">
-      <button class="btn-primary" onclick="hwAct({{ d }}, 'unlock')">🔓 Ontgrendelen</button>
-      <button class="btn-secondary" onclick="hwAct({{ d }}, 'lock')">🔒 Vergrendelen</button>
-      <button class="btn-warning" onclick="hwAct({{ d }}, 'simulate-open')">📂 Sim Open</button>
-      <button class="btn-warning" onclick="hwAct({{ d }}, 'simulate-close')">📁 Sim Sluit</button>
+      <button class="btn-primary"   onclick="hwAct({{ d }}, 'unlock')">Ontgrendelen</button>
+      <button class="btn-secondary" onclick="hwAct({{ d }}, 'lock')">Vergrendelen</button>
+      <button class="btn-warning"   onclick="hwAct({{ d }}, 'simulate-open')">Sim. Open</button>
+      <button class="btn-warning"   onclick="hwAct({{ d }}, 'simulate-close')">Sim. Sluit</button>
     </div>
   </div>
   {% endfor %}
@@ -44,8 +44,14 @@
       const st = data.deuren[String(d)] || {};
       const slotEl = document.getElementById('slot-' + d);
       const reedEl = document.getElementById('reed-' + d);
-      if (slotEl) slotEl.textContent = st.unlocked ? '🔓 Open' : '🔒 Dicht';
-      if (reedEl) reedEl.textContent = st.open ? '📂 Open' : '📁 Dicht';
+      if (slotEl) {
+        slotEl.textContent = st.unlocked ? 'Ontgrendeld' : 'Vergrendeld';
+        slotEl.style.color = st.unlocked ? 'var(--success)' : 'var(--text-muted)';
+      }
+      if (reedEl) {
+        reedEl.textContent = st.open ? 'Open' : 'Gesloten';
+        reedEl.style.color = st.open ? 'var(--warning)' : 'var(--text-muted)';
+      }
     });
   }
 

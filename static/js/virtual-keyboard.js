@@ -40,30 +40,30 @@
     s.textContent =
       '#vkbd{' +
         'position:fixed;bottom:0;left:0;right:0;z-index:8000;' +
-        'background:#141418;border-top:2px solid #333;' +
+        'background:#13131a;border-top:1px solid #2b2b38;' +
         'padding:8px 6px 14px;user-select:none;' +
         'transform:translateY(102%);transition:transform .22s ease;' +
-        'box-shadow:0 -6px 28px rgba(0,0,0,.8);' +
+        'box-shadow:0 -8px 32px rgba(0,0,0,.85);' +
       '}' +
       '#vkbd.vkbd-on{transform:translateY(0);}' +
       '.vkbd-row{display:flex;gap:5px;margin-bottom:5px;justify-content:center;}' +
       '.vkbd-key{' +
         'flex:1;max-width:54px;min-height:52px;' +
-        'background:#2a2a2a;color:#e8e8f0;' +
-        'border:1px solid #3a3a4a;border-radius:9px;' +
+        'background:#1a1a22;color:#e4e4ec;' +
+        'border:1px solid #2b2b38;border-radius:8px;' +
         'font-size:17px;font-family:inherit;cursor:pointer;' +
         'display:flex;align-items:center;justify-content:center;' +
         'touch-action:manipulation;-webkit-tap-highlight-color:transparent;' +
         'transition:background .1s;' +
       '}' +
-      '.vkbd-key:active,.vkbd-key.pressed{background:#444;transform:scale(.93);}' +
+      '.vkbd-key:active,.vkbd-key.pressed{background:#2a2a36;transform:scale(.92);}' +
       '.vkbd-key.mod{flex:0 0 auto;}' +
-      '.vkbd-shift{min-width:54px;max-width:54px;background:#23233a;font-size:20px;}' +
-      '.vkbd-shift.on{background:#4f8ef7;color:#fff;}' +
-      '.vkbd-back{min-width:54px;max-width:54px;background:#2e1a1a;color:#e05555;font-size:18px;}' +
-      '.vkbd-mode{min-width:62px;max-width:62px;font-size:13px;background:#1e1e28;color:#9090b0;}' +
+      '.vkbd-shift{min-width:54px;max-width:54px;background:#1a1a22;font-size:20px;}' +
+      '.vkbd-shift.on{background:#5a8cf0;color:#fff;}' +
+      '.vkbd-back{min-width:54px;max-width:54px;background:rgba(240,100,100,.1);color:#f06464;font-size:18px;}' +
+      '.vkbd-mode{min-width:62px;max-width:62px;font-size:13px;background:#13131a;color:#8888a8;}' +
       '.vkbd-space{flex:3;max-width:9999px;}' +
-      '.vkbd-ok{min-width:64px;max-width:64px;background:#1a3a26;color:#4caf7a;font-size:20px;}';
+      '.vkbd-ok{min-width:64px;max-width:64px;background:rgba(74,222,128,.12);color:#4ade80;font-size:20px;}';
     document.head.appendChild(s);
   }
 

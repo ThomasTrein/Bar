@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-screen">
   <div class="page-header">
-    <a href="{{ url_for('kiosk.bestelling_producten') }}" class="btn-back">← Terug</a>
+    <a href="{{ url_for('kiosk.bestelling_producten', ot=ot) }}" class="btn-back">← Terug</a>
     <h1>Besteloverzicht</h1>
   </div>
 
@@ -39,9 +39,11 @@
 
   <div class="bottom-bar">
     <form method="POST" action="{{ url_for('kiosk.bestelling_bevestigen') }}">
-      <button type="submit" class="btn-confirm">✅ Bevestigen & openen</button>
+      <input type="hidden" name="ot" value="{{ ot }}">
+      <button type="submit" class="btn-confirm">Bevestigen &amp; openen</button>
     </form>
     <form method="POST" action="{{ url_for('kiosk.bestelling_annuleren') }}">
+      <input type="hidden" name="ot" value="{{ ot }}">
       <button type="submit" class="btn-danger" onclick="return confirm('Annuleren?')">✕ Annuleren</button>
     </form>
   </div>
@@ -50,11 +52,12 @@
 
 {% block scripts %}
 <script>
+  const OT = '{{ ot }}';
   async function verwijderItem(personId, productId) {
     const r = await fetch('/api/bestelling/item-verwijderen', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({person_id: personId, product_id: productId})
+      body: JSON.stringify({person_id: personId, product_id: productId, ot: OT})
     });
     if ((await r.json()).ok) location.reload();
   }

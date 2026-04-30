@@ -29,10 +29,11 @@
 {% block scripts %}
 <script>
   const deurenNodig = {{ order.deuren_nodig | tojson }};
+  const OT = '{{ ot }}';
 
   async function pollStatus() {
     try {
-      const r = await fetch('/api/deur-status');
+      const r = await fetch('/api/deur-status?ot=' + OT);
       const data = await r.json();
 
       deurenNodig.forEach(d => {

@@ -3,13 +3,14 @@
 {% block content %}
 <div class="page-screen">
   <div class="page-header">
-    <a href="{{ url_for('kiosk.home') if next == 'home' else url_for('kiosk.bestelling_naam') }}" class="btn-back">← Terug</a>
+    <a href="{{ url_for('kiosk.home') if next == 'home' else url_for('kiosk.bestelling_naam', ot=ot) }}" class="btn-back">← Terug</a>
     <h1>➕ Nieuwe persoon aanmaken</h1>
   </div>
 
   <form method="POST" action="{{ url_for('kiosk.persoon_nieuw') }}"
         enctype="multipart/form-data" class="form-card">
     <input type="hidden" name="next" value="{{ next or 'bestelling_naam' }}">
+    <input type="hidden" name="ot" value="{{ ot or '' }}">
     <div class="form-group">
       <label>Voornaam *</label>
       <input type="text" name="voornaam" required class="form-input" autofocus>
@@ -29,7 +30,7 @@
     </div>
     <div class="form-actions">
       <button type="submit" class="btn-primary">✅ Aanmaken</button>
-      <a href="{{ url_for('kiosk.home') if next == 'home' else url_for('kiosk.bestelling_naam') }}" class="btn-secondary">Annuleren</a>
+      <a href="{{ url_for('kiosk.home') if next == 'home' else url_for('kiosk.bestelling_naam', ot=ot) }}" class="btn-secondary">Annuleren</a>
     </div>
   </form>
 </div>

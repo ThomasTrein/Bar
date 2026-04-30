@@ -57,7 +57,7 @@
     <form method="POST" action="{{ url_for('admin.rekening_sluiten', pid=persoon.id) }}">
       <button type="submit" class="btn-danger"
               onclick="return confirm('Rekening sluiten: €{{ "%.2f"|format(saldo) }} als betaald registreren?')">
-        ✅ Rekening sluiten (€{{ "%.2f"|format(saldo) }})
+        Rekening sluiten (€{{ "%.2f"|format(saldo) }})
       </button>
     </form>
     {% endif %}

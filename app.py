@@ -6,7 +6,7 @@ import os
 import secrets
 from flask import Flask, send_from_directory
 
-from config import BASE_DIR, VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR
+from config import BASE_DIR, VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR
 from database.schema import init_db
 from database.db import add_log
 
@@ -25,11 +25,17 @@ def create_app():
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
     # Mappen
-    for d in [VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR]:
+    for d in [VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR]:
         os.makedirs(d, exist_ok=True)
 
     # Database
     init_db()
+
+    # Context processor: inject screensaver_foto into every template
+    @app.context_processor
+    def inject_globals():
+        from database.db import get_setting
+        return {'screensaver_foto': get_setting('screensaver_foto', '')}
 
     # Blueprints
     from routes.kiosk import kiosk_bp

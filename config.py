@@ -12,6 +12,7 @@ BACKUPS_DIR = os.path.join(BASE_DIR, 'backups')
 UPLOADS_DIR = os.path.join(BASE_DIR, 'uploads')
 UPLOADS_PERSONS_DIR = os.path.join(UPLOADS_DIR, 'persons')
 UPLOADS_PRODUCTS_DIR = os.path.join(UPLOADS_DIR, 'products')
+UPLOADS_SCREENSAVER_DIR = os.path.join(UPLOADS_DIR, 'screensaver')
 
 # Hardware detectie
 IS_RASPBERRY_PI = os.path.exists('/proc/device-tree/model')
@@ -34,6 +35,7 @@ DEFAULT_SETTINGS = {
     'admin_logout_min':        '10',
     'prijs_tonen':             'false',
     'product_kolommen':        '2',
+    'persoon_kolommen':        '4',
     'video_bewaar_dagen':      '40',
     'pi_reboot_tijd':          '06:30',
 }

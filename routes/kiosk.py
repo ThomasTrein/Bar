@@ -1,7 +1,7 @@
 """Kiosk routes voor KSA Bar."""
 import os, json, uuid
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
-from database.db import get_db, query, execute, add_log, get_setting
+from database.db import get_db, query, execute, executemany, add_log, get_setting
 from hardware.gpio_controller import get_fridge_controller
 from hardware.camera import start_recording, stop_recording
 from services.fifo import consume_stock, restore_stock
@@ -12,13 +12,15 @@ kiosk_bp = Blueprint('kiosk', __name__)
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def get_order():
-    return session.get('active_order', {'regels': [], 'started': False,
-                                        'recording_path': '', 'current_person_id': None,
-                                        'current_person_naam': None, 'deuren_nodig': []})
+def get_order(token=''):
+    return session.get('orders', {}).get(token, {'regels': [], 'started': False,
+                                                   'recording_path': '', 'current_person_id': None,
+                                                   'current_person_naam': None, 'deuren_nodig': []})
 
-def save_order(o):
-    session['active_order'] = o
+def save_order(o, token=''):
+    if 'orders' not in session:
+        session['orders'] = {}
+    session['orders'][token] = o
     session.modified = True
 
 def alle_personen():
@@ -57,24 +59,28 @@ def home():
 
 @kiosk_bp.route('/bestelling/naam')
 def bestelling_naam():
-    order = get_order()
-    # Alleen resetten als er geen actieve bestelling bezig is
-    if not order.get('started'):
+    ot = request.args.get('ot', '')
+    order = get_order(ot)
+    if not ot or not order.get('started'):
+        ot = uuid.uuid4().hex
         save_order({'regels': [], 'started': True, 'recording_path': '',
-                    'current_person_id': None, 'current_person_naam': None, 'deuren_nodig': []})
-    return render_template('kiosk/order_name.html', personen=alle_personen(), extra=False)
+                    'current_person_id': None, 'current_person_naam': None, 'deuren_nodig': []}, ot)
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
+    return render_template('kiosk/order_name.html', personen=alle_personen(), extra=False,
+                           ot=ot, persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/bestelling/naam', methods=['POST'])
 def bestelling_naam_post():
+    ot = request.form.get('ot', '')
     pid = request.form.get('person_id', type=int)
     if not pid:
         return redirect(url_for('kiosk.bestelling_naam'))
     p = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
     if not p:
-        return redirect(url_for('kiosk.bestelling_naam'))
+        return redirect(url_for('kiosk.bestelling_naam', ot=ot))
 
-    order = get_order()
+    order = get_order(ot)
     naam = p['bijnaam'] or p['voornaam']
 
     if not order.get('recording_path'):
@@ -83,34 +89,38 @@ def bestelling_naam_post():
 
     order['current_person_id']   = pid
     order['current_person_naam'] = naam
-    save_order(order)
-    return redirect(url_for('kiosk.bestelling_producten'))
+    save_order(order, ot)
+    return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
 
 # ─── Bestelling: extra persoon ────────────────────────────────────────────────
 
 @kiosk_bp.route('/bestelling/extra-persoon')
 def bestelling_extra_persoon():
-    order = get_order()
+    ot = request.args.get('ot', '')
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
-    return render_template('kiosk/order_name.html', personen=alle_personen(), extra=True)
+    persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
+    return render_template('kiosk/order_name.html', personen=alle_personen(), extra=True,
+                           ot=ot, persoon_kolommen=persoon_kolommen)
 
 
 @kiosk_bp.route('/bestelling/extra-persoon', methods=['POST'])
 def bestelling_extra_persoon_post():
+    ot = request.form.get('ot', '')
     pid = request.form.get('person_id', type=int)
     if not pid:
-        return redirect(url_for('kiosk.bestelling_producten'))
+        return redirect(url_for('kiosk.bestelling_producten', ot=ot))
     p = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
     if not p:
-        return redirect(url_for('kiosk.bestelling_producten'))
+        return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
-    order = get_order()
+    order = get_order(ot)
     order['current_person_id']   = pid
     order['current_person_naam'] = p['bijnaam'] or p['voornaam']
-    save_order(order)
-    return redirect(url_for('kiosk.bestelling_producten'))
+    save_order(order, ot)
+    return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
 
 
@@ -118,8 +128,9 @@ def bestelling_extra_persoon_post():
 
 @kiosk_bp.route('/bestelling/wissel-persoon', methods=['POST'])
 def bestelling_wissel_persoon():
+    ot = request.form.get('ot', '')
     naam = request.form.get('person_naam', '')
-    order = get_order()
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
     # Zoek persoon_id op via de regels
@@ -128,15 +139,16 @@ def bestelling_wissel_persoon():
             order['current_person_id']   = item['person_id']
             order['current_person_naam'] = naam
             break
-    save_order(order)
-    return redirect(url_for('kiosk.bestelling_producten'))
+    save_order(order, ot)
+    return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
 
 # ─── Bestelling: producten ────────────────────────────────────────────────────
 
 @kiosk_bp.route('/bestelling/producten')
 def bestelling_producten():
-    order = get_order()
+    ot = request.args.get('ot', '')
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
     cats, prods = alle_producten_per_categorie()
@@ -158,12 +170,14 @@ def bestelling_producten():
                            toon_prijs=toon_prijs,
                            blocked_prod_ids=blocked_prod_ids,
                            blocked_cat_ids=blocked_cat_ids,
-                           product_kolommen=product_kolommen)
+                           product_kolommen=product_kolommen,
+                           ot=ot)
 
 
 @kiosk_bp.route('/bestelling/producten', methods=['POST'])
 def bestelling_producten_post():
-    order = get_order()
+    ot = request.form.get('ot', '')
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
 
@@ -184,20 +198,21 @@ def bestelling_producten_post():
                     'prijs':        prod['verkoop_prijs'],
                     'stock':        prod['stock'],
                 })
-                save_order(order)
+                save_order(order, ot)
 
     elif actie == 'persoon_toevoegen':
-        return redirect(url_for('kiosk.bestelling_extra_persoon'))
+        return redirect(url_for('kiosk.bestelling_extra_persoon', ot=ot))
 
     elif actie == 'overzicht':
-        return redirect(url_for('kiosk.bestelling_overzicht'))
+        return redirect(url_for('kiosk.bestelling_overzicht', ot=ot))
 
-    return redirect(url_for('kiosk.bestelling_producten'))
+    return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
 
 @kiosk_bp.route('/bestelling/bak-toevoegen', methods=['POST'])
 def bestelling_bak_toevoegen():
-    order = get_order()
+    ot = request.form.get('ot', '')
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
     prod_id = request.form.get('product_id', type=int)
@@ -213,17 +228,18 @@ def bestelling_bak_toevoegen():
                 'prijs':        prod['verkoop_prijs'],
                 'stock':        prod['stock'],
             })
-            save_order(order)
-    return redirect(url_for('kiosk.bestelling_producten'))
+            save_order(order, ot)
+    return redirect(url_for('kiosk.bestelling_producten', ot=ot))
 
 
 # ─── Bestelling: overzicht & bevestigen ──────────────────────────────────────
 
 @kiosk_bp.route('/bestelling/overzicht')
 def bestelling_overzicht():
-    order = get_order()
+    ot = request.args.get('ot', '')
+    order = get_order(ot)
     if not order.get('started') or not order.get('regels'):
-        return redirect(url_for('kiosk.bestelling_producten'))
+        return redirect(url_for('kiosk.bestelling_producten', ot=ot))
     toon_prijs = get_setting('prijs_tonen', 'false') == 'true'
 
     # Groepeer regels per persoon (volgorde eerste verschijning) en per product
@@ -249,12 +265,13 @@ def bestelling_overzicht():
     gegroepeerde_order['regels'] = gegroepeerde_regels
 
     return render_template('kiosk/order_overview.html',
-                           order=gegroepeerde_order, toon_prijs=toon_prijs)
+                           order=gegroepeerde_order, toon_prijs=toon_prijs, ot=ot)
 
 
 @kiosk_bp.route('/bestelling/bevestigen', methods=['POST'])
 def bestelling_bevestigen():
-    order = get_order()
+    ot = request.form.get('ot', '')
+    order = get_order(ot)
     if not order.get('started') or not order.get('regels'):
         return redirect(url_for('kiosk.home'))
 
@@ -293,7 +310,7 @@ def bestelling_bevestigen():
 
     order['order_id']    = order_id
     order['deuren_nodig'] = list(deuren)
-    save_order(order)
+    save_order(order, ot)
 
     timeout = int(get_setting('deur_timeout_sec', '120'))
     fridge  = get_fridge_controller()
@@ -307,25 +324,30 @@ def bestelling_bevestigen():
 
     groups = [s for s in product_door_map.values() if s]
     fridge.unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done)
-    return redirect(url_for('kiosk.bestelling_wachten'))
+    return redirect(url_for('kiosk.bestelling_wachten', ot=ot))
 
 
 @kiosk_bp.route('/bestelling/wachten')
 def bestelling_wachten():
-    order = get_order()
+    ot = request.args.get('ot', '')
+    order = get_order(ot)
     if not order.get('started'):
         return redirect(url_for('kiosk.home'))
-    return render_template('kiosk/order_waiting.html', order=order)
+    return render_template('kiosk/order_waiting.html', order=order, ot=ot)
 
 
 @kiosk_bp.route('/bestelling/annuleren', methods=['POST'])
 def bestelling_annuleren():
+    ot = request.form.get('ot', '')
     stop_recording()
-    order = get_order()
+    order = get_order(ot)
     oid = order.get('order_id')
     beschrijving = f"Bestelling geannuleerd: #{oid}" if oid else "Bestelling geannuleerd"
     add_log('bestelling', beschrijving, referentie_id=oid, referentie_type='bestelling' if oid else None)
-    session.pop('active_order', None)
+    orders = session.get('orders', {})
+    orders.pop(ot, None)
+    session['orders'] = orders
+    session.modified = True
     return redirect(url_for('kiosk.home'))
 
 
@@ -702,12 +724,14 @@ def winkelaankoop_bevestigen():
 @kiosk_bp.route('/persoon/nieuw', methods=['GET', 'POST'])
 def persoon_nieuw():
     next_url = request.args.get('next', 'bestelling_naam')
+    ot = request.args.get('ot', '')
     if request.method == 'POST':
         voornaam = request.form.get('voornaam', '').strip()
         next_url = request.form.get('next', 'bestelling_naam')
+        ot = request.form.get('ot', '')
         if not voornaam:
             return render_template('kiosk/new_person.html',
-                                   fout="Voornaam is verplicht", next=next_url)
+                                   fout="Voornaam is verplicht", next=next_url, ot=ot)
 
         foto_path = ''
         foto = request.files.get('foto')
@@ -723,9 +747,18 @@ def persoon_nieuw():
             (voornaam, request.form.get('achternaam', '').strip(),
              request.form.get('bijnaam', '').strip(), foto_path)
         )
+        # Auto-block globally locked products for new person
+        locked_prods = query("SELECT id FROM products WHERE globally_locked=1")
+        if locked_prods:
+            executemany(
+                "INSERT OR IGNORE INTO person_blocked_products (person_id, product_id) VALUES (?,?)",
+                [(pid, p['id']) for p in locked_prods]
+            )
         add_log('systeem', f"Nieuw persoon: {voornaam}", pid)
         if next_url == 'home':
             return redirect(url_for('kiosk.home'))
+        if ot:
+            return redirect(url_for('kiosk.bestelling_naam', ot=ot))
         return redirect(url_for('kiosk.bestelling_naam'))
 
-    return render_template('kiosk/new_person.html', next=next_url)
+    return render_template('kiosk/new_person.html', next=next_url, ot=ot)

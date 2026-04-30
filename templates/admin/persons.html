@@ -2,7 +2,7 @@
 {% block title %}Personen — KSA Bar Admin{% endblock %}
 {% block content %}
 <div class="admin-page-header">
-  <h1>👤 Persoonsbeheer</h1>
+  <h1>Persoonsbeheer</h1>
 </div>
 
 {# Nieuw persoon formulier (altijd zichtbaar) #}
@@ -45,11 +45,11 @@
       <td>{{ p.voornaam }} {{ p.achternaam or '' }}</td>
       <td>{{ p.bijnaam or '—' }}</td>
       <td>{% if p.is_bond %}<span class="badge-special">DE BOND</span>
-          {% elif p.actief %}✅{% else %}❌{% endif %}</td>
+          {% elif p.actief %}<span class="badge-active">Actief</span>{% else %}<span class="badge-inactive">Inactief</span>{% endif %}</td>
       <td class="action-cell">
         {% if not p.is_bond %}
-        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">✏️</button>
-        <a href="{{ url_for('admin.persoon_beperkingen', pid=p.id) }}" class="btn-sm btn-warning">🚫 Beperkingen</a>
+        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">Bewerk</button>
+        <a href="{{ url_for('admin.persoon_beperkingen', pid=p.id) }}" class="btn-sm btn-warning">Beperkingen</a>
         <form method="POST" action="{{ url_for('admin.persoon_toggle', pid=p.id) }}" style="display:inline">
           <button class="btn-sm {% if p.actief %}btn-warning{% else %}btn-primary{% endif %}">
             {% if p.actief %}Deactiveren{% else %}Activeren{% endif %}
@@ -58,7 +58,7 @@
         <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
               style="display:inline"
               onsubmit="return confirm('Persoon deactiveren?')">
-          <button class="btn-sm btn-danger">🗑️</button>
+          <button class="btn-sm btn-danger">Verwijder</button>
         </form>
         {% endif %}
       </td>

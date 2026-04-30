@@ -20,13 +20,23 @@ def deur_status():
     fridge = get_fridge_controller()
     status = fridge.get_status()
 
-    order = session.get('active_order', {})
+    ot = request.args.get('ot', '')
+    orders = session.get('orders', {})
+    order = orders.get(ot, session.get('active_order', {}))
     deuren_nodig = set(order.get('deuren_nodig', []))
+
+    def _clear_order():
+        if ot and ot in orders:
+            orders.pop(ot)
+            session['orders'] = orders
+            session.modified = True
+        else:
+            session.pop('active_order', None)
 
     # Geen deuren nodig → bestelling direct klaar
     if not deuren_nodig:
         stop_recording()
-        session.pop('active_order', None)
+        _clear_order()
         return jsonify({'deuren': {str(k): v for k, v in status.items()},
                         'alle_klaar': True})
 
@@ -38,7 +48,7 @@ def deur_status():
 
     if alle_klaar:
         stop_recording()
-        session.pop('active_order', None)
+        _clear_order()
 
     return jsonify({'deuren': {str(k): v for k, v in status.items()},
                     'alle_klaar': alle_klaar})
@@ -108,7 +118,16 @@ def item_verwijderen():
     data = request.get_json(silent=True) or {}
     person_id  = data.get('person_id')
     product_id = data.get('product_id')
-    order = session.get('active_order', {})
+    ot = data.get('ot', '')
+
+    orders = session.get('orders', {})
+    if ot and ot in orders:
+        order = orders[ot]
+        use_token = True
+    else:
+        order = session.get('active_order', {})
+        use_token = False
+
     items = order.get('regels', [])
     if person_id is None or product_id is None:
         return jsonify({'ok': False}), 400
@@ -119,6 +138,10 @@ def item_verwijderen():
     if len(nieuwe_items) == len(items):
         return jsonify({'ok': False}), 400
     order['regels'] = nieuwe_items
-    session['active_order'] = order
+    if use_token:
+        orders[ot] = order
+        session['orders'] = orders
+    else:
+        session['active_order'] = order
     session.modified = True
     return jsonify({'ok': True})

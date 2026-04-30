@@ -5,13 +5,14 @@
 
   {# Header met persoon-switcher #}
   <div class="page-header order-header">
-    <a href="{{ url_for('kiosk.bestelling_naam') }}" class="btn-back">← Annuleren</a>
+    <a href="{{ url_for('kiosk.bestelling_naam', ot=ot) }}" class="btn-back">← Annuleren</a>
     <div class="order-persoon-tabs">
       {% set personen_in_order = order.regels | map(attribute='person_naam') | unique | list %}
       {% for naam in personen_in_order %}
         {% set count = order.regels | selectattr('person_naam', 'equalto', naam) | list | length %}
         <form method="POST" action="{{ url_for('kiosk.bestelling_wissel_persoon') }}" style="display:inline">
           <input type="hidden" name="person_naam" value="{{ naam }}">
+          <input type="hidden" name="ot" value="{{ ot }}">
           <button type="submit" class="persoon-tab {% if naam == order.current_person_naam %}persoon-tab-actief{% endif %}">
             {{ naam }} ({{ count }})
           </button>
@@ -96,6 +97,7 @@
         <form method="POST" action="{{ url_for('kiosk.bestelling_producten_post') }}">
           <input type="hidden" name="actie" value="toevoegen">
           <input type="hidden" name="product_id" value="{{ p.id }}">
+          <input type="hidden" name="ot" value="{{ ot }}">
           <div class="qty-row">
             <button type="button" class="qty-btn" onclick="changeQty(this,-1)">−</button>
             <input type="number" name="hoeveelheid" value="1" min="1" max="99"
@@ -107,6 +109,7 @@
         {% if p.bak_grootte %}
         <form method="POST" action="{{ url_for('kiosk.bestelling_bak_toevoegen') }}" style="margin-top:6px">
           <input type="hidden" name="product_id" value="{{ p.id }}">
+          <input type="hidden" name="ot" value="{{ ot }}">
           <button type="submit" class="btn-bak">🍺 Bak ({{ p.bak_grootte }})</button>
         </form>
         {% endif %}
@@ -122,15 +125,18 @@
   <div class="bottom-bar">
     <form method="POST" action="{{ url_for('kiosk.bestelling_producten_post') }}" style="display:inline">
       <input type="hidden" name="actie" value="persoon_toevoegen">
-      <button type="submit" class="btn-secondary">👤 Persoon toevoegen</button>
+      <input type="hidden" name="ot" value="{{ ot }}">
+      <button type="submit" class="btn-secondary">Persoon toevoegen</button>
     </form>
     {% if order.regels %}
     <form method="POST" action="{{ url_for('kiosk.bestelling_producten_post') }}" style="display:inline">
       <input type="hidden" name="actie" value="overzicht">
-      <button type="submit" class="btn-primary">📋 Overzicht ({{ order.regels|length }})</button>
+      <input type="hidden" name="ot" value="{{ ot }}">
+      <button type="submit" class="btn-primary">Overzicht ({{ order.regels|length }})</button>
     </form>
     {% endif %}
     <form method="POST" action="{{ url_for('kiosk.bestelling_annuleren') }}" style="display:inline">
+      <input type="hidden" name="ot" value="{{ ot }}">
       <button type="submit" class="btn-danger" onclick="return confirm('Bestelling annuleren?')">
         ✕ Annuleren
       </button>
@@ -141,6 +147,7 @@
 
 {% block scripts %}
 <script>
+  const OT = '{{ ot }}';
   function showCat(id, btn) {
     document.querySelectorAll('.cat-panel').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
@@ -155,7 +162,7 @@
     const r = await fetch('/api/bestelling/item-verwijderen', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({person_id: personId, product_id: productId})
+      body: JSON.stringify({person_id: personId, product_id: productId, ot: OT})
     });
     if ((await r.json()).ok) location.reload();
   }

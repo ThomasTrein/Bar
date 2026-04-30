@@ -2,8 +2,8 @@
 {% block title %}Producten — KSA Bar Admin{% endblock %}
 {% block content %}
 <div class="admin-page-header">
-  <h1>🥤 Productbeheer</h1>
-  <button class="btn-primary" onclick="toggleForm('nieuw-form')">➕ Nieuw product</button>
+  <h1>Productbeheer</h1>
+  <button class="btn-primary" onclick="toggleForm('nieuw-form')">Nieuw product</button>
 </div>
 
 {# Nieuw product formulier #}
@@ -54,6 +54,12 @@
         <input type="checkbox" name="actief" checked> Actief
       </label>
     </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="globally_locked" checked>
+        <span>Geblokkeerd voor iedereen <span class="text-dim" style="font-size:0.85em">(iedereen moet dit product eerst vrijspelen via Beperkingen)</span></span>
+      </label>
+    </div>
     <button type="submit" class="btn-primary">Opslaan</button>
   </form>
 </div>
@@ -72,7 +78,7 @@
   <thead>
     <tr>
       <th>Foto</th><th>Naam</th><th>Categorie</th><th>Verkoop</th>
-      <th>Aankoop</th><th>Stock</th><th>Deuren</th><th>Actief</th><th>Acties</th>
+      <th>Aankoop</th><th>Stock</th><th>Deuren</th><th>Actief</th><th>Slot</th><th>Acties</th>
     </tr>
   </thead>
   <tbody>
@@ -88,19 +94,20 @@
       <td>€{{ "%.2f"|format(p.aankoop_prijs) }}</td>
       <td class="{% if (p.stock or 0) <= 0 %}text-danger{% endif %}">{{ p.stock or 0 }}</td>
       <td>{{ p.deuren or '—' }}</td>
-      <td>{% if p.actief %}✅{% else %}❌{% endif %}</td>
+      <td>{% if p.actief %}<span class="badge-active">Actief</span>{% else %}<span class="badge-inactive">Inactief</span>{% endif %}</td>
+      <td>{% if p.globally_locked %}<span class="badge-warning" title="Geblokkeerd voor iedereen — vrijspelen via Beperkingen">Geblokkeerd</span>{% else %}<span class="text-muted fs-sm">Vrij</span>{% endif %}</td>
       <td class="action-cell">
-        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">✏️</button>
+        <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">Bewerk</button>
         <form method="POST" action="{{ url_for('admin.product_verwijderen', pid=p.id) }}"
               style="display:inline"
               onsubmit="return confirm('Product verwijderen?')">
-          <button class="btn-sm btn-danger">🗑️</button>
+          <button class="btn-sm btn-danger">Verwijder</button>
         </form>
       </td>
     </tr>
     {# Inline edit row #}
     <tr id="edit-{{ p.id }}" class="edit-row hidden">
-      <td colspan="9">
+      <td colspan="10">
         <form method="POST" action="{{ url_for('admin.product_bewerken', pid=p.id) }}"
               enctype="multipart/form-data" class="admin-form inline-form">
           <div class="form-row">
@@ -151,6 +158,12 @@
                 <input type="checkbox" name="actief" {% if p.actief %}checked{% endif %}> Actief
               </label>
             </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" name="globally_locked" {% if p.globally_locked %}checked{% endif %}>
+                Geblokkeerd voor iedereen
+              </label>
+            </div>
           </div>
           <button type="submit" class="btn-primary">Opslaan</button>
           <button type="button" class="btn-secondary" onclick="toggleEditRow({{ p.id }})">Annuleren</button>
@@ -163,7 +176,7 @@
 
 {# Categorieën beheer #}
 <div class="section-divider"></div>
-<h2>📂 Categorieën</h2>
+<h2>Categorieën</h2>
 <table class="admin-table">
   <thead><tr><th>Naam</th><th>Volgorde</th><th>Acties</th></tr></thead>
   <tbody>
@@ -172,10 +185,10 @@
       <td>{{ c.naam }}</td>
       <td>{{ c.volgorde }}</td>
       <td>
-        <button class="btn-sm btn-secondary" onclick="toggleEditCat({{ c.id }})">✏️</button>
+        <button class="btn-sm btn-secondary" onclick="toggleEditCat({{ c.id }})">Bewerk</button>
         <form method="POST" action="{{ url_for('admin.categorie_verwijderen', cid=c.id) }}"
               style="display:inline" onsubmit="return confirm('Categorie verwijderen?')">
-          <button class="btn-sm btn-danger">🗑️</button>
+          <button class="btn-sm btn-danger">Verwijder</button>
         </form>
       </td>
     </tr>
@@ -193,7 +206,7 @@
 </table>
 <form method="POST" action="{{ url_for('admin.categorie_nieuw') }}" class="inline-form">
   <input type="text" name="naam" placeholder="Nieuwe categorie…" class="form-input" required>
-  <button type="submit" class="btn-primary">➕ Toevoegen</button>
+  <button type="submit" class="btn-primary">Toevoegen</button>
 </form>
 {% endblock %}
 

@@ -4,8 +4,8 @@ from datetime import datetime
 from functools import wraps
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, send_file, jsonify, flash)
-from database.db import get_db, query, execute, add_log, get_setting, set_setting
-from config import UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, DATABASE_PATH
+from database.db import get_db, query, execute, executemany, add_log, get_setting, set_setting
+from config import UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR, DATABASE_PATH
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -122,19 +122,29 @@ def product_nieuw():
     deuren   = request.form.getlist('deuren')
     bak_grootte_str = request.form.get('bak_grootte', '').strip()
     bak_grootte = int(bak_grootte_str) if bak_grootte_str.isdigit() and int(bak_grootte_str) > 0 else None
+    globally_locked = 1 if request.form.get('globally_locked') else 0
 
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products')
 
     pid = execute(
-        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, actief, bak_grootte, foto_path) VALUES (?,?,?,0,?,?,?)",
-        (naam, cat_id, prijs, actief, bak_grootte, foto_path)
+        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, actief, bak_grootte, foto_path, globally_locked) VALUES (?,?,?,0,?,?,?,?)",
+        (naam, cat_id, prijs, actief, bak_grootte, foto_path, globally_locked)
     )
     for d in deuren:
         try:
             execute("INSERT INTO product_doors (product_id,deur) VALUES (?,?)", (pid, int(d)))
         except Exception:
             pass
-    add_log('admin', f"Product aangemaakt: {naam}")
+
+    if globally_locked:
+        persons = query("SELECT id FROM persons")
+        if persons:
+            executemany(
+                "INSERT OR IGNORE INTO person_blocked_products (person_id, product_id) VALUES (?,?)",
+                [(p['id'], pid) for p in persons]
+            )
+
+    add_log('admin', f"Product aangemaakt: {naam}" + (" [geblokkeerd voor iedereen]" if globally_locked else ""))
     return redirect(url_for('admin.producten'))
 
 
@@ -149,14 +159,15 @@ def product_bewerken(pid):
     prijs = request.form.get('verkoop_prijs', type=float)
     actief= 1 if request.form.get('actief') else 0
     deuren= request.form.getlist('deuren')
+    globally_locked = 1 if request.form.get('globally_locked') else 0
     bak_grootte_str = request.form.get('bak_grootte', '').strip()
     bak_grootte = int(bak_grootte_str) if bak_grootte_str.isdigit() and int(bak_grootte_str) > 0 else None
     # Aankoopprijs en stock worden NIET aangepast via admin productenbeheer
     huidige_stock    = old['stock']    if old else 0
     huidige_aankoop  = old['aankoop_prijs'] if old else 0
 
-    execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=?,bak_grootte=? WHERE id=?",
-            (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, bak_grootte, pid))
+    execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=?,bak_grootte=?,globally_locked=? WHERE id=?",
+            (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, bak_grootte, globally_locked, pid))
     execute("DELETE FROM product_doors WHERE product_id=?", (pid,))
     for d in deuren:
         try:
@@ -241,10 +252,17 @@ def persoon_nieuw():
     if not voornaam:
         return redirect(url_for('admin.dashboard'))
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PERSONS_DIR, 'persons')
-    execute(
+    new_pid = execute(
         "INSERT INTO persons (voornaam, achternaam, bijnaam, foto_path) VALUES (?,?,?,?)",
         (voornaam, achternaam, bijnaam, foto_path or '')
     )
+    # Auto-block globally locked products for new person
+    locked_prods = query("SELECT id FROM products WHERE globally_locked=1")
+    if locked_prods:
+        executemany(
+            "INSERT OR IGNORE INTO person_blocked_products (person_id, product_id) VALUES (?,?)",
+            [(new_pid, p['id']) for p in locked_prods]
+        )
     add_log('admin', f"Persoon aangemaakt: {bijnaam or voornaam}")
     return redirect(url_for('admin.personen'))
 
@@ -908,11 +926,32 @@ def instellingen():
     if request.method == 'POST':
         for k in ['admin_password','deur_timeout_sec','screensaver_timeout_min',
                   'admin_logout_min','video_bewaar_dagen','pi_reboot_tijd',
-                  'product_kolommen']:
+                  'product_kolommen', 'persoon_kolommen']:
             v = request.form.get(k, '').strip()
             if v:
                 set_setting(k, v)
         set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') == '1' else 'false')
+
+        # Screensaver foto verwijderen
+        if request.form.get('screensaver_foto_verwijderen') == '1':
+            oude_pad = get_setting('screensaver_foto', '')
+            if oude_pad:
+                try:
+                    os.remove(os.path.join(UPLOADS_SCREENSAVER_DIR, os.path.basename(oude_pad)))
+                except OSError:
+                    pass
+            set_setting('screensaver_foto', '')
+
+        # Screensaver foto uploaden
+        foto = request.files.get('screensaver_foto')
+        if foto and foto.filename:
+            ext = foto.filename.rsplit('.', 1)[-1].lower()
+            if ext in ('jpg', 'jpeg', 'png', 'webp', 'gif'):
+                os.makedirs(UPLOADS_SCREENSAVER_DIR, exist_ok=True)
+                naam = f"screensaver.{ext}"
+                foto.save(os.path.join(UPLOADS_SCREENSAVER_DIR, naam))
+                set_setting('screensaver_foto', f"screensaver/{naam}")
+
         add_log('admin', 'Instellingen gewijzigd')
         return redirect(url_for('admin.instellingen'))
     all_s = {r['sleutel']: r['waarde'] for r in query("SELECT sleutel,waarde FROM settings")}

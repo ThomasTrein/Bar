@@ -188,6 +188,7 @@ def init_db():
             category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
             PRIMARY KEY (person_id, category_id)
         )""",
+        "ALTER TABLE products ADD COLUMN globally_locked INTEGER DEFAULT 0",
     ]
     for sql in migrations:
         try:
