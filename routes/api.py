@@ -7,6 +7,13 @@ from hardware.camera import stop_recording
 api_bp = Blueprint('api', __name__)
 
 
+def _admin_required():
+    """Returns a 403 response if the current request is not from a logged-in admin."""
+    if not session.get('admin_logged_in'):
+        return jsonify({'ok': False, 'error': 'Niet geautoriseerd'}), 403
+    return None
+
+
 @api_bp.route('/deur-status')
 def deur_status():
     """Polling endpoint: status alle deuren + of bestelling klaar is."""
@@ -16,8 +23,15 @@ def deur_status():
     order = session.get('active_order', {})
     deuren_nodig = set(order.get('deuren_nodig', []))
 
+    # Geen deuren nodig → bestelling direct klaar
+    if not deuren_nodig:
+        stop_recording()
+        session.pop('active_order', None)
+        return jsonify({'deuren': {str(k): v for k, v in status.items()},
+                        'alle_klaar': True})
+
     # Klaar = alle benodigde deuren zijn terug vergrendeld
-    alle_klaar = bool(deuren_nodig) and all(
+    alle_klaar = all(
         not status.get(d, {}).get('unlocked', False)
         for d in deuren_nodig
     )
@@ -32,6 +46,8 @@ def deur_status():
 
 @api_bp.route('/hardware-test/deur/<int:deur>/unlock', methods=['POST'])
 def hw_unlock(deur):
+    err = _admin_required()
+    if err: return err
     fridge = get_fridge_controller()
     if deur in fridge.doors:
         fridge.doors[deur].unlock()
@@ -41,6 +57,8 @@ def hw_unlock(deur):
 
 @api_bp.route('/hardware-test/deur/<int:deur>/lock', methods=['POST'])
 def hw_lock(deur):
+    err = _admin_required()
+    if err: return err
     fridge = get_fridge_controller()
     if deur in fridge.doors:
         fridge.doors[deur].lock()
@@ -50,6 +68,8 @@ def hw_lock(deur):
 
 @api_bp.route('/hardware-test/deur/<int:deur>/simulate-open', methods=['POST'])
 def hw_sim_open(deur):
+    err = _admin_required()
+    if err: return err
     fridge = get_fridge_controller()
     if deur in fridge.doors:
         fridge.doors[deur].simulate_open()
@@ -59,6 +79,8 @@ def hw_sim_open(deur):
 
 @api_bp.route('/hardware-test/deur/<int:deur>/simulate-close', methods=['POST'])
 def hw_sim_close(deur):
+    err = _admin_required()
+    if err: return err
     fridge = get_fridge_controller()
     if deur in fridge.doors:
         fridge.doors[deur].simulate_close()

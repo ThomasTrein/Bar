@@ -1,0 +1,51 @@
+{% extends "base_admin.html" %}
+{% block title %}Winkelaankopen — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Winkelaankopen</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <select name="person_id" class="form-input">
+    <option value="">Alle personen</option>
+    {% for p in personen %}
+    <option value="{{ p.id }}" {% if filters.person_id == p.id %}selected{% endif %}>
+      {{ p.bijnaam or p.voornaam }}
+    </option>
+    {% endfor %}
+  </select>
+  <input type="date" name="datum_van" value="{{ filters.datum_van or '' }}" class="form-input">
+  <input type="date" name="datum_tot" value="{{ filters.datum_tot or '' }}" class="form-input">
+  <button type="submit" class="btn-primary">Filteren</button>
+  <a href="{{ url_for('admin.winkelaankopen') }}" class="btn-secondary">Reset</a>
+</form>
+
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>Tijdstip</th>
+      <th>Persoon</th>
+      <th>Producten</th>
+      <th>Totaal stuks</th>
+      <th>Totaal aankoopprijs</th>
+      <th>Acties</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in aankopen %}
+    <tr>
+      <td>{{ a.tijdstip[:16] if a.tijdstip else '' }}</td>
+      <td>{{ a.bijnaam or a.voornaam or '—' }}</td>
+      <td>{{ a.producten or 0 }}</td>
+      <td>{{ a.items or 0 }}</td>
+      <td>€{{ "%.2f"|format(a.totaal or 0) }}</td>
+      <td>
+        <a href="{{ url_for('admin.winkelaankoop_detail', aid=a.id) }}" class="btn-sm btn-secondary">Detail</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">Geen winkelaankopen gevonden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

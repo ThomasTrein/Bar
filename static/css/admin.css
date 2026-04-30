@@ -129,8 +129,9 @@ h2 { font-size: 18px; margin: 16px 0 10px; color: var(--text); }
 .row-special  { background: rgba(79,142,247,.1); }
 .totaal-row   { background: var(--surface2); font-weight: 700; }
 tfoot tr { border-top: 2px solid var(--border); }
-.text-success { color: var(--success); font-weight: 600; }
-.text-danger  { color: var(--danger);  font-weight: 600; }
+.text-dim   { color: var(--text-dim); }
+.ref-link   { color: var(--accent); text-decoration: none; font-size: 13px; }
+.ref-link:hover { text-decoration: underline; }
 
 /* ---- Badges ---- */
 .badge-danger   { background: var(--danger);  color: #fff; border-radius: 4px;

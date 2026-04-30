@@ -57,8 +57,11 @@ def home():
 
 @kiosk_bp.route('/bestelling/naam')
 def bestelling_naam():
-    save_order({'regels': [], 'started': True, 'recording_path': '',
-                'current_person_id': None, 'current_person_naam': None, 'deuren_nodig': []})
+    order = get_order()
+    # Alleen resetten als er geen actieve bestelling bezig is
+    if not order.get('started'):
+        save_order({'regels': [], 'started': True, 'recording_path': '',
+                    'current_person_id': None, 'current_person_naam': None, 'deuren_nodig': []})
     return render_template('kiosk/order_name.html', personen=alle_personen(), extra=False)
 
 
@@ -81,7 +84,6 @@ def bestelling_naam_post():
     order['current_person_id']   = pid
     order['current_person_naam'] = naam
     save_order(order)
-    add_log('kiosk', f"Persoon geselecteerd voor bestelling: {naam}", pid)
     return redirect(url_for('kiosk.bestelling_producten'))
 
 
@@ -150,12 +152,13 @@ def bestelling_producten():
         blocked_cat_ids = {r['category_id'] for r in
             query("SELECT category_id FROM person_blocked_categories WHERE person_id=?", (pid,))}
 
+    product_kolommen = int(get_setting('product_kolommen', '2'))
     return render_template('kiosk/order_products.html',
                            order=order, categorieen=cats, producten=prods,
                            toon_prijs=toon_prijs,
-                           product_kolommen=int(get_setting('product_kolommen', '2')),
                            blocked_prod_ids=blocked_prod_ids,
-                           blocked_cat_ids=blocked_cat_ids)
+                           blocked_cat_ids=blocked_cat_ids,
+                           product_kolommen=product_kolommen)
 
 
 @kiosk_bp.route('/bestelling/producten', methods=['POST'])
@@ -286,7 +289,7 @@ def bestelling_bevestigen():
     for item in order['regels']:
         consume_stock(item['product_id'], item['hoeveelheid'])
 
-    add_log('bestelling', f"Bestelling #{order_id} ({len(order['regels'])} items)", first_pid, order_id, 'bestelling')
+    add_log('bestelling', f"Bestelling geplaatst: #{order_id} ({len(order['regels'])} items)", first_pid, order_id, 'bestelling')
 
     order['order_id']    = order_id
     order['deuren_nodig'] = list(deuren)
@@ -296,7 +299,11 @@ def bestelling_bevestigen():
     fridge  = get_fridge_controller()
 
     def on_done(deur, opened):
-        add_log('deur', f"Deur {deur} {'OK' if opened else 'timeout'}", referentie_id=order_id, referentie_type='order')
+        if opened:
+            add_log('deur', f"Deur {deur} geopend", referentie_id=order_id, referentie_type='order')
+            add_log('deur', f"Deur {deur} gesloten", referentie_id=order_id, referentie_type='order')
+        else:
+            add_log('deur', f"Deur {deur} timeout", referentie_id=order_id, referentie_type='order')
 
     groups = [s for s in product_door_map.values() if s]
     fridge.unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done)
@@ -306,18 +313,18 @@ def bestelling_bevestigen():
 @kiosk_bp.route('/bestelling/wachten')
 def bestelling_wachten():
     order = get_order()
+    if not order.get('started'):
+        return redirect(url_for('kiosk.home'))
     return render_template('kiosk/order_waiting.html', order=order)
 
 
 @kiosk_bp.route('/bestelling/annuleren', methods=['POST'])
 def bestelling_annuleren():
-    order = get_order()
-    person_naam = order.get('current_person_naam') or '?'
-    order_id = order.get('order_id')
     stop_recording()
-    add_log('bestelling', f"Bestelling geannuleerd (persoon: {person_naam})",
-            order.get('current_person_id'), order_id,
-            'bestelling' if order_id else None)
+    order = get_order()
+    oid = order.get('order_id')
+    beschrijving = f"Bestelling geannuleerd: #{oid}" if oid else "Bestelling geannuleerd"
+    add_log('bestelling', beschrijving, referentie_id=oid, referentie_type='bestelling' if oid else None)
     session.pop('active_order', None)
     return redirect(url_for('kiosk.home'))
 
@@ -379,9 +386,7 @@ def baravond_start():
         (pid, json.dumps(inv), rec.get_relatief_pad(), naam)
     )
     get_fridge_controller().unlock_all()
-    p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
-    naam = (p['bijnaam'] or p['voornaam']) if p else '?'
-    add_log('baravond', f"Baravond gestart door {naam}", pid, bar_id, 'bar_evening')
+    add_log('baravond', "Baravond gestart", pid, bar_id, 'bar_evening')
     session['active_bar_evening'] = bar_id
     return redirect(url_for('kiosk.home'))
 
@@ -406,9 +411,7 @@ def baravond_stop():
 
     get_fridge_controller().lock_all()
     stop_recording()
-    p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
-    naam = (p['bijnaam'] or p['voornaam']) if p else '?'
-    add_log('baravond', f"Baravond gestopt door {naam}", pid, bar_id, 'bar_evening')
+    add_log('baravond', "Baravond gestopt", pid, bar_id, 'bar_evening')
     session.pop('active_bar_evening', None)
     session.pop('baravond_person_id', None)
     session.pop('baravond_stop_person_id', None)
@@ -492,25 +495,14 @@ def aanvullen_stop():
         )
 
     # Bepaal wie gestopt heeft
-    stopper_naam = '?'
-    if stopper_id:
-        p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (stopper_id,), one=True)
-        if p:
-            stopper_naam = p['bijnaam'] or p['voornaam']
-    else:
-        # Zoek op wie de sessie gestart heeft
-        if refill_id:
-            rs = query("SELECT person_id FROM refill_sessions WHERE id=?", (refill_id,), one=True)
-            if rs and rs['person_id']:
-                stopper_id = rs['person_id']
-                p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (stopper_id,), one=True)
-                if p:
-                    stopper_naam = p['bijnaam'] or p['voornaam']
+    if not stopper_id and refill_id:
+        rs = query("SELECT person_id FROM refill_sessions WHERE id=?", (refill_id,), one=True)
+        if rs and rs['person_id']:
+            stopper_id = rs['person_id']
 
     get_fridge_controller().lock_all()
     stop_recording()
-    add_log('aanvulling', f"Aanvulmodus gestopt door {stopper_naam}",
-            stopper_id, refill_id, 'refill')
+    add_log('aanvulling', "Aanvulmodus gestopt", stopper_id, refill_id, 'refill')
     session.pop('active_refill', None)
     return redirect(url_for('kiosk.home'))
 
@@ -570,7 +562,6 @@ def de_bond_producten():
 def de_bond_bevestigen():
     bond = query("SELECT * FROM persons WHERE is_bond=1", one=True)
     if not bond:
-        add_log('systeem', 'De Bond-persoon niet gevonden — bestelling geannuleerd')
         return redirect(url_for('kiosk.home'))
 
     bond_sess = session.get('bond_session', {})
@@ -614,7 +605,7 @@ def de_bond_bevestigen():
     for item in items:
         consume_stock(item['product_id'], item['hoeveelheid'])
 
-    add_log('bestelling', f"De Bond bestelling #{order_id} door {actor_naam}",
+    add_log('bestelling', f"De Bond bestelling #{order_id}",
             actor_id or bond['id'], order_id, 'order')
     session['bond_session'] = {}
     session['active_order'] = {'order_id': order_id, 'deuren_nodig': list(deuren),
@@ -622,12 +613,7 @@ def de_bond_bevestigen():
 
     timeout = int(get_setting('deur_timeout_sec', '120'))
     groups = [s for s in product_door_map.values() if s]
-
-    def on_done_bond(deur, opened):
-        add_log('deur', f"Deur {deur} {'OK' if opened else 'timeout'}",
-                actor_id or bond['id'], order_id, 'order')
-
-    get_fridge_controller().unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done_bond)
+    get_fridge_controller().unlock_door_groups(groups, timeout_sec=timeout)
     return redirect(url_for('kiosk.bestelling_wachten'))
 
 

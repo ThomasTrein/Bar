@@ -118,6 +118,7 @@ def product_nieuw():
     naam     = request.form.get('naam', '').strip()
     cat_id   = request.form.get('categorie_id', type=int)
     prijs    = request.form.get('verkoop_prijs', 0.0, type=float)
+    actief   = 1 if request.form.get('actief') else 0
     deuren   = request.form.getlist('deuren')
     bak_grootte_str = request.form.get('bak_grootte', '').strip()
     bak_grootte = int(bak_grootte_str) if bak_grootte_str.isdigit() and int(bak_grootte_str) > 0 else None
@@ -125,8 +126,8 @@ def product_nieuw():
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products')
 
     pid = execute(
-        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, bak_grootte, foto_path) VALUES (?,?,?,0,?,?)",
-        (naam, cat_id, prijs, bak_grootte, foto_path)
+        "INSERT INTO products (naam, categorie_id, verkoop_prijs, aankoop_prijs, actief, bak_grootte, foto_path) VALUES (?,?,?,0,?,?,?)",
+        (naam, cat_id, prijs, actief, bak_grootte, foto_path)
     )
     for d in deuren:
         try:
@@ -140,7 +141,7 @@ def product_nieuw():
 @admin_bp.route('/producten/<int:pid>/bewerken', methods=['POST'])
 @login_required
 def product_bewerken(pid):
-    old = query("SELECT naam, foto_path, stock, aankoop_prijs, verkoop_prijs FROM products WHERE id=?", (pid,), one=True)
+    old = query("SELECT foto_path, stock, aankoop_prijs FROM products WHERE id=?", (pid,), one=True)
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products') \
                 or (old['foto_path'] if old else '')
     naam  = request.form.get('naam', '').strip()
@@ -162,13 +163,7 @@ def product_bewerken(pid):
             execute("INSERT INTO product_doors (product_id,deur) VALUES (?,?)", (pid, int(d)))
         except Exception:
             pass
-    wijzigingen = []
-    if old and old['naam'] != naam:
-        wijzigingen.append(f"naam: {old['naam']} → {naam}")
-    if old and prijs is not None and round(float(old['verkoop_prijs'] or 0), 2) != round(prijs, 2):
-        wijzigingen.append(f"prijs: €{float(old['verkoop_prijs'] or 0):.2f} → €{prijs:.2f}")
-    detail = f" ({', '.join(wijzigingen)})" if wijzigingen else ""
-    add_log('admin', f"Product #{pid} bijgewerkt: {naam}{detail}")
+    add_log('admin', f"Product #{pid} bijgewerkt: {naam}")
     return redirect(url_for('admin.producten'))
 
 
@@ -263,21 +258,13 @@ def persoon_bewerken(pid):
 
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PERSONS_DIR, 'persons') \
                 or p['foto_path']
-    nieuw_voornaam   = request.form.get('voornaam', '').strip()
-    nieuw_achternaam = request.form.get('achternaam', '').strip()
-    nieuw_bijnaam    = request.form.get('bijnaam', '').strip()
-    nieuw_actief     = 1 if request.form.get('actief') else 0
     execute("UPDATE persons SET voornaam=?,achternaam=?,bijnaam=?,actief=?,foto_path=? WHERE id=?",
-            (nieuw_voornaam, nieuw_achternaam, nieuw_bijnaam, nieuw_actief, foto_path, pid))
-    wijzigingen = []
-    if p['voornaam'] != nieuw_voornaam:
-        wijzigingen.append(f"voornaam: {p['voornaam']} → {nieuw_voornaam}")
-    if (p['bijnaam'] or '') != nieuw_bijnaam:
-        wijzigingen.append(f"bijnaam: {p['bijnaam'] or ''} → {nieuw_bijnaam}")
-    if p['actief'] != nieuw_actief:
-        wijzigingen.append(f"actief: {'ja' if p['actief'] else 'nee'} → {'ja' if nieuw_actief else 'nee'}")
-    detail = f" ({', '.join(wijzigingen)})" if wijzigingen else ""
-    add_log('admin', f"Persoon #{pid} bijgewerkt{detail}", pid)
+            (request.form.get('voornaam','').strip(),
+             request.form.get('achternaam','').strip(),
+             request.form.get('bijnaam','').strip(),
+             1 if request.form.get('actief') else 0,
+             foto_path, pid))
+    add_log('admin', f"Persoon #{pid} bijgewerkt")
     return redirect(url_for('admin.personen'))
 
 
@@ -371,6 +358,8 @@ def bestellingen():
 @login_required
 def bestelling_detail(oid):
     order = query("SELECT * FROM orders WHERE id=?", (oid,), one=True)
+    if not order:
+        return render_template('admin/order_detail.html', order=None, items=[]), 404
     items = query(
         """SELECT oi.*, p.voornaam, p.bijnaam, pr.naam as product_naam
            FROM order_items oi
@@ -750,6 +739,83 @@ def winst():
                            datum_van=datum_van, datum_tot=datum_tot)
 
 
+# ─── Winkelaankopen ──────────────────────────────────────────────────────────
+
+@admin_bp.route('/winkelaankopen')
+@login_required
+def winkelaankopen():
+    filters = {
+        'person_id': request.args.get('person_id', type=int),
+        'datum_van': request.args.get('datum_van', ''),
+        'datum_tot': request.args.get('datum_tot', ''),
+    }
+    sql = """SELECT sp.id, sp.tijdstip, sp.person_id,
+                    p.voornaam, p.bijnaam,
+                    COUNT(spi.id) as producten,
+                    COALESCE(SUM(spi.hoeveelheid), 0) as items,
+                    COALESCE(SUM(spi.hoeveelheid * spi.aankoop_prijs_per_stuk), 0) as totaal
+             FROM shop_purchases sp
+             LEFT JOIN persons p ON sp.person_id=p.id
+             LEFT JOIN shop_purchase_items spi ON spi.aankoop_id=sp.id
+             WHERE 1=1"""
+    params = []
+    if filters['person_id']:
+        sql += " AND sp.person_id=?"; params.append(filters['person_id'])
+    if filters['datum_van']:
+        sql += " AND sp.tijdstip>=?"; params.append(filters['datum_van'])
+    if filters['datum_tot']:
+        sql += " AND sp.tijdstip<=?"; params.append(filters['datum_tot'] + ' 23:59:59')
+    sql += " GROUP BY sp.id ORDER BY sp.tijdstip DESC"
+
+    pers = query("SELECT id,voornaam,bijnaam FROM persons ORDER BY voornaam")
+    aankopen = query(sql, params)
+    return render_template('admin/winkelaankopen.html',
+                           aankopen=aankopen, personen=pers, filters=filters)
+
+
+@admin_bp.route('/winkelaankopen/<int:aid>')
+@login_required
+def winkelaankoop_detail(aid):
+    aankoop = query(
+        """SELECT sp.*, p.voornaam, p.bijnaam
+           FROM shop_purchases sp
+           LEFT JOIN persons p ON sp.person_id=p.id
+           WHERE sp.id=?""", (aid,), one=True)
+    if not aankoop:
+        flash('Aankoop niet gevonden.', 'danger')
+        return redirect(url_for('admin.winkelaankopen'))
+    items = query(
+        """SELECT spi.*, pr.naam as product_naam
+           FROM shop_purchase_items spi
+           JOIN products pr ON spi.product_id=pr.id
+           WHERE spi.aankoop_id=?
+           ORDER BY pr.naam""", (aid,))
+    return render_template('admin/winkelaankoop_detail.html',
+                           aankoop=aankoop, items=items)
+
+
+@admin_bp.route('/winkelaankopen/<int:aid>/bewerken', methods=['POST'])
+@login_required
+def winkelaankoop_bewerken(aid):
+    items = query("SELECT * FROM shop_purchase_items WHERE aankoop_id=?", (aid,))
+    for item in items:
+        nieuwe_qty   = request.form.get(f"qty_{item['id']}", type=int)
+        nieuwe_prijs = request.form.get(f"prijs_{item['id']}", type=float)
+        if nieuwe_qty is None:
+            continue
+        if nieuwe_qty <= 0:
+            execute("DELETE FROM shop_purchase_items WHERE id=?", (item['id'],))
+        else:
+            prijs = nieuwe_prijs if nieuwe_prijs is not None else item['aankoop_prijs_per_stuk']
+            execute(
+                "UPDATE shop_purchase_items SET hoeveelheid=?, aankoop_prijs_per_stuk=? WHERE id=?",
+                (nieuwe_qty, prijs, item['id'])
+            )
+    add_log('admin', f"Winkelaankoop #{aid} bewerkt")
+    flash('Aankoop bijgewerkt.', 'success')
+    return redirect(url_for('admin.winkelaankoop_detail', aid=aid))
+
+
 # ─── Logs ─────────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/logs')
@@ -788,7 +854,7 @@ def logs():
     return render_template('admin/logs.html',
                            logs=logs_list, personen=pers, filters=filters,
                            order_videos=order_videos,
-                           log_types=['bestelling','stock','baravond','aanvulling','admin','systeem','deur'])
+                           log_types=['bestelling','stock','baravond','aanvulling','admin','systeem','deur','betaling'])
 
 
 # ─── Database viewer ──────────────────────────────────────────────────────────
@@ -840,25 +906,14 @@ def hardware_test():
 @login_required
 def instellingen():
     if request.method == 'POST':
-        wijzigingen = []
         for k in ['admin_password','deur_timeout_sec','screensaver_timeout_min',
-                  'admin_logout_min','video_bewaar_dagen','pi_reboot_tijd','product_kolommen']:
+                  'admin_logout_min','video_bewaar_dagen','pi_reboot_tijd',
+                  'product_kolommen']:
             v = request.form.get(k, '').strip()
             if v:
-                oud = get_setting(k, '')
-                if oud != v:
-                    if k == 'admin_password':
-                        wijzigingen.append('wachtwoord gewijzigd')
-                    else:
-                        wijzigingen.append(f"{k}: {oud} → {v}")
                 set_setting(k, v)
-        nieuw_prijs = 'true' if request.form.get('prijs_tonen') == '1' else 'false'
-        oud_prijs   = get_setting('prijs_tonen', 'false')
-        if oud_prijs != nieuw_prijs:
-            wijzigingen.append(f"prijs_tonen: {oud_prijs} → {nieuw_prijs}")
-        set_setting('prijs_tonen', nieuw_prijs)
-        detail = f": {', '.join(wijzigingen)}" if wijzigingen else " (geen wijzigingen)"
-        add_log('admin', f"Instellingen gewijzigd{detail}")
+        set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') == '1' else 'false')
+        add_log('admin', 'Instellingen gewijzigd')
         return redirect(url_for('admin.instellingen'))
     all_s = {r['sleutel']: r['waarde'] for r in query("SELECT sleutel,waarde FROM settings")}
     fout = request.args.get('fout')

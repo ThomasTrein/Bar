@@ -28,7 +28,7 @@
 
 <table class="admin-table">
   <thead>
-    <tr><th>Tijdstip</th><th>Type</th><th>Persoon</th><th>Omschrijving</th><th>Video</th></tr>
+    <tr><th>Tijdstip</th><th>Type</th><th>Persoon</th><th>Omschrijving</th><th>Referentie</th><th>Video</th></tr>
   </thead>
   <tbody>
     {% for log in logs %}
@@ -38,7 +38,22 @@
       <td>{{ log.bijnaam or log.voornaam or '—' }}</td>
       <td>{{ log.beschrijving }}</td>
       <td>
-        {% if log.referentie_id and log.referentie_type == 'bestelling' %}
+        {% if log.referentie_id %}
+          {% if log.referentie_type in ['bestelling', 'order'] %}
+            <a href="{{ url_for('admin.bestelling_detail', oid=log.referentie_id) }}" class="ref-link">Bestelling #{{ log.referentie_id }}</a>
+          {% elif log.referentie_type == 'bar_evening' %}
+            <a href="{{ url_for('admin.baravond_detail', bid=log.referentie_id) }}" class="ref-link">Baravond #{{ log.referentie_id }}</a>
+          {% elif log.referentie_type == 'shop_purchase' %}
+            <a href="{{ url_for('admin.winkelaankoop_detail', aid=log.referentie_id) }}" class="ref-link">Aankoop #{{ log.referentie_id }}</a>
+          {% elif log.referentie_type == 'refill' %}
+            <span class="text-dim">Aanvulling #{{ log.referentie_id }}</span>
+          {% else %}
+            <span class="text-dim">#{{ log.referentie_id }}</span>
+          {% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if log.referentie_id and log.referentie_type in ['bestelling', 'order'] %}
           {% set vid = order_videos.get(log.referentie_id, '') %}
           {% if vid %}
           <a href="{{ url_for('serve_video', pad=vid) }}" target="_blank" class="btn-sm btn-secondary">▶ Video</a>
@@ -47,7 +62,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5">Geen logs gevonden.</td></tr>
+    <tr><td colspan="6">Geen logs gevonden.</td></tr>
     {% endfor %}
   </tbody>
 </table>

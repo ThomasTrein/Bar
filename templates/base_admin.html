@@ -16,6 +16,7 @@
       <a href="{{ url_for('admin.personen') }}">Personen</a>
       <a href="{{ url_for('admin.bestellingen') }}">Bestellingen</a>
       <a href="{{ url_for('admin.baravond_list') }}">Baravonden</a>
+      <a href="{{ url_for('admin.winkelaankopen') }}">Winkelaankopen</a>
       <a href="{{ url_for('admin.rekening') }}">Rekening</a>
       <a href="{{ url_for('admin.winst') }}">Winst</a>
       <a href="{{ url_for('admin.logs') }}">Logs</a>
@@ -36,6 +37,7 @@
     {% block content %}{% endblock %}
   </main>
   <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/virtual-keyboard.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

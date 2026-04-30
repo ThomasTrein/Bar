@@ -239,7 +239,8 @@ html, body {
 .cat-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
 .product-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
-  align-items: start;
+  align-items: stretch;
+  align-content: start;
   gap: 12px; padding: 16px; overflow-y: auto; flex: 1;
 }
 .product-kaart {

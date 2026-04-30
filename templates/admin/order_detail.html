@@ -1,6 +1,13 @@
 {% extends "base_admin.html" %}
-{% block title %}Bestelling #{{ order.id }} — KSA Bar Admin{% endblock %}
+{% block title %}Bestelling{% if order %} #{{ order.id }}{% endif %} — KSA Bar Admin{% endblock %}
 {% block content %}
+{% if not order %}
+<div class="admin-page-header">
+  <h1>Bestelling niet gevonden</h1>
+  <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Terug</a>
+</div>
+<p>Deze bestelling bestaat niet.</p>
+{% else %}
 <div class="admin-page-header">
   <h1>Bestelling #{{ order.id }}</h1>
   <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Terug</a>
@@ -44,5 +51,6 @@
       onsubmit="return confirm('Bestelling annuleren en stock herstellen?')">
   <button class="btn-danger">Bestelling annuleren</button>
 </form>
+{% endif %}
 {% endif %}
 {% endblock %}

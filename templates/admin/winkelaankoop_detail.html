@@ -1,0 +1,61 @@
+{% extends "base_admin.html" %}
+{% block title %}Winkelaankoop #{{ aankoop.id }} — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>Winkelaankoop #{{ aankoop.id }}</h1>
+  <a href="{{ url_for('admin.winkelaankopen') }}" class="btn-secondary">← Terug</a>
+</div>
+
+<div class="detail-info">
+  <p><strong>Tijdstip:</strong> {{ aankoop.tijdstip }}</p>
+  <p><strong>Persoon:</strong> {{ aankoop.bijnaam or aankoop.voornaam or '—' }}</p>
+</div>
+
+{% if items %}
+<h2>Items bewerken</h2>
+<form method="POST" action="{{ url_for('admin.winkelaankoop_bewerken', aid=aankoop.id) }}">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Hoeveelheid</th>
+        <th>Aankoopprijs / stuk (€)</th>
+        <th>Subtotaal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set totaal = namespace(val=0) %}
+      {% for item in items %}
+      {% set sub = item.hoeveelheid * item.aankoop_prijs_per_stuk %}
+      {% set totaal.val = totaal.val + sub %}
+      <tr>
+        <td>{{ item.product_naam }}</td>
+        <td>
+          <input type="number" name="qty_{{ item.id }}" value="{{ item.hoeveelheid }}"
+                 min="0" class="form-input short-input" data-no-vkbd="1">
+        </td>
+        <td>
+          <input type="number" step="0.01" name="prijs_{{ item.id }}"
+                 value="{{ '%.2f'|format(item.aankoop_prijs_per_stuk) }}"
+                 min="0" class="form-input short-input" data-no-vkbd="1">
+        </td>
+        <td>€{{ "%.2f"|format(sub) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3"><strong>Totaal</strong></td>
+        <td><strong>€{{ "%.2f"|format(totaal.val) }}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <button type="submit" class="btn-primary">💾 Opslaan</button>
+    <span class="text-dim" style="font-size:13px;">Hoeveelheid op 0 zetten verwijdert het item.</span>
+  </div>
+</form>
+{% else %}
+<p class="text-dim">Geen items gevonden voor deze aankoop.</p>
+{% endif %}
+{% endblock %}

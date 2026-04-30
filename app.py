@@ -13,7 +13,15 @@ from database.db import add_log
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = secrets.token_hex(32)
+
+    # Gebruik een vaste secret_key die bewaard wordt in de database,
+    # zodat sessies geldig blijven na een herstart van de app.
+    from database.db import get_setting, set_setting
+    sk = get_setting('_flask_secret_key')
+    if not sk:
+        sk = secrets.token_hex(32)
+        set_setting('_flask_secret_key', sk)
+    app.secret_key = sk
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
     # Mappen
