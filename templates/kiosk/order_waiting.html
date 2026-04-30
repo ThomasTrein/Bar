@@ -56,10 +56,18 @@
       });
 
       if (data.alle_klaar) {
-        document.getElementById('klaar-msg').classList.remove('hidden');
-        document.getElementById('waitTitle').textContent = 'Alles klaar!';
-        document.getElementById('waitMsg').style.display = 'none';
-        document.getElementById('waitIcon').textContent = '✅';
+        if (data.deur_niet_geopend) {
+          document.getElementById('waitIcon').textContent = '⚠️';
+          document.getElementById('waitTitle').textContent = 'Deuren nooit geopend';
+          document.getElementById('waitMsg').textContent = 'Je bestelling is NIET aangerekend. De frigo werd niet geopend binnen de toegestane tijd.';
+          document.getElementById('waitMsg').style.display = '';
+          document.getElementById('waitMsg').style.color = 'var(--danger, #e55)';
+        } else {
+          document.getElementById('klaar-msg').classList.remove('hidden');
+          document.getElementById('waitTitle').textContent = 'Alles klaar!';
+          document.getElementById('waitMsg').style.display = 'none';
+          document.getElementById('waitIcon').textContent = '✅';
+        }
         let secs = 5;
         const countEl = document.getElementById('countdown');
         const timer = setInterval(() => {

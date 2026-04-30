@@ -1,5 +1,5 @@
 """Kiosk routes voor KSA Bar."""
-import os, json, uuid
+import os, json, uuid, threading
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from database.db import get_db, query, execute, executemany, add_log, get_setting
 from hardware.gpio_controller import get_fridge_controller
@@ -315,14 +315,30 @@ def bestelling_bevestigen():
     timeout = int(get_setting('deur_timeout_sec', '120'))
     fridge  = get_fridge_controller()
 
-    def on_done(deur, opened):
-        if opened:
-            add_log('deur', f"Deur {deur} geopend", referentie_id=order_id, referentie_type='order')
-            add_log('deur', f"Deur {deur} gesloten", referentie_id=order_id, referentie_type='order')
-        else:
-            add_log('deur', f"Deur {deur} timeout", referentie_id=order_id, referentie_type='order')
-
     groups = [s for s in product_door_map.values() if s]
+    total_groups = len(groups)
+    done_results = []   # True = deur geopend, False = timeout
+    done_lock = threading.Lock()
+    order_items_snapshot = [(item['product_id'], item['hoeveelheid']) for item in order['regels']]
+
+    def on_done(deur, opened):
+        with done_lock:
+            done_results.append(opened)
+            if opened:
+                add_log('deur', f"Deur {deur} geopend", referentie_id=order_id, referentie_type='order')
+                add_log('deur', f"Deur {deur} gesloten", referentie_id=order_id, referentie_type='order')
+            else:
+                add_log('deur', f"Deur {deur} timeout — nooit geopend", referentie_id=order_id, referentie_type='order')
+
+            if len(done_results) == total_groups and not any(done_results):
+                # Alle deuren hebben timeout gehad: bestelling annuleren
+                execute("UPDATE orders SET geannuleerd=1, deur_niet_geopend=1 WHERE id=?", (order_id,))
+                for prod_id, hoeveelheid in order_items_snapshot:
+                    restore_stock(prod_id, hoeveelheid)
+                add_log('bestelling',
+                        f"Bestelling #{order_id} geannuleerd: deuren nooit geopend — bedrag NIET aangerekend",
+                        referentie_id=order_id, referentie_type='bestelling')
+
     fridge.unlock_door_groups(groups, timeout_sec=timeout, on_complete=on_done)
     return redirect(url_for('kiosk.bestelling_wachten', ot=ot))
 

@@ -463,6 +463,13 @@ tfoot tr      { border-top: 2px solid var(--border); }
 /* ── Edit rows ────────────────────────────────────────── */
 .edit-row        { background: var(--surface2); }
 .edit-row.hidden { display: none; }
+.edit-extra-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 
 /* ── Login ────────────────────────────────────────────── */
 .login-screen {
@@ -685,6 +692,9 @@ tfoot tr      { border-top: 2px solid var(--border); }
 .restriction-product-label:hover { background: var(--surface3); }
 .restriction-product-label input[type="checkbox"] { accent-color: var(--danger); width: 14px; height: 14px; }
 .restriction-blocked .restriction-products { opacity: .4; pointer-events: none; }
+.restriction-exception { border-color: var(--success) !important; background: color-mix(in srgb, var(--success) 8%, var(--surface2)) !important; }
+.restriction-global-badge { font-size: 0.72em; padding: 1px 5px; }
+.restriction-exception-badge { font-size: 0.72em; padding: 1px 5px; }
 
 /* ── Spacing utilities ────────────────────────────────── */
 .mb-0  { margin-bottom: 0 !important; }

@@ -9,6 +9,8 @@
 <p class="text-dim mb-16">
   Vink aan welke categorieën of producten deze persoon <strong>niet</strong> mag bestellen.
   Een geblokkeerde categorie overschrijft individuele producten — alle producten uit die categorie zijn dan geblokkeerd.
+  <br>Producten met <span class="badge-warning" style="font-size:0.8em">Globaal geblokkeerd</span> zijn standaard voor <strong>iedereen</strong> geblokkeerd.
+  Als je het vinkje <em>uitzet</em> voor zo'n product, is dit een uitzondering: alleen deze persoon kan het dan bestellen.
 </p>
 
 <form method="POST">
@@ -23,10 +25,18 @@
     </div>
     <div class="restriction-products" id="prods-cat-{{ cat.id }}">
       {% for p in producten if p.categorie_id == cat.id %}
-      <label class="restriction-product-label">
+      {% set is_globally_locked = p.id in globally_locked_ids %}
+      {% set is_blocked = p.id in blocked_prods %}
+      <label class="restriction-product-label {% if is_globally_locked and not is_blocked %}restriction-exception{% endif %}">
         <input type="checkbox" name="blocked_prods" value="{{ p.id }}"
-               {% if p.id in blocked_prods %}checked{% endif %}>
+               {% if is_blocked %}checked{% endif %}>
         {{ p.naam }}
+        {% if is_globally_locked %}
+          <span class="badge-warning restriction-global-badge" title="Standaard geblokkeerd voor iedereen">Globaal geblokkeerd</span>
+          {% if not is_blocked %}
+            <span class="badge-active restriction-exception-badge" title="Uitzondering: deze persoon mag dit wél bestellen">Uitzondering actief</span>
+          {% endif %}
+        {% endif %}
       </label>
       {% endfor %}
     </div>
@@ -40,10 +50,18 @@
     <div class="restriction-cat-header">Zonder categorie</div>
     <div class="restriction-products">
       {% for p in prods_zonder_cat %}
-      <label class="restriction-product-label">
+      {% set is_globally_locked = p.id in globally_locked_ids %}
+      {% set is_blocked = p.id in blocked_prods %}
+      <label class="restriction-product-label {% if is_globally_locked and not is_blocked %}restriction-exception{% endif %}">
         <input type="checkbox" name="blocked_prods" value="{{ p.id }}"
-               {% if p.id in blocked_prods %}checked{% endif %}>
+               {% if is_blocked %}checked{% endif %}>
         {{ p.naam }}
+        {% if is_globally_locked %}
+          <span class="badge-warning restriction-global-badge">Globaal geblokkeerd</span>
+          {% if not is_blocked %}
+            <span class="badge-active restriction-exception-badge">Uitzondering actief</span>
+          {% endif %}
+        {% endif %}
       </label>
       {% endfor %}
     </div>

@@ -158,7 +158,7 @@ def init_db():
     """)
 
     # Standaard categorieën
-    for i, cat in enumerate(['Frisdranken', 'Bier', 'Wijn', 'Sterke drank'], 1):
+    for i, cat in enumerate(['Frisdranken', 'Bier'], 1):
         conn.execute(
             "INSERT OR IGNORE INTO categories (naam, volgorde) VALUES (?, ?)",
             (cat, i)
@@ -189,6 +189,7 @@ def init_db():
             PRIMARY KEY (person_id, category_id)
         )""",
         "ALTER TABLE products ADD COLUMN globally_locked INTEGER DEFAULT 0",
+        "ALTER TABLE orders ADD COLUMN deur_niet_geopend INTEGER DEFAULT 0",
     ]
     for sql in migrations:
         try:

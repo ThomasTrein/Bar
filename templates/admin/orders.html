@@ -34,7 +34,13 @@
       <td>
         {% if b.type == 'bond' %}<span class="badge-special">Bond</span>
         {% else %}Normaal{% endif %}
-        {% if b.geannuleerd %}<span class="badge-danger">Geannuleerd</span>{% endif %}
+        {% if b.geannuleerd %}
+          {% if b.deur_niet_geopend %}
+            <span class="badge-danger">Deuren nooit geopend</span>
+          {% else %}
+            <span class="badge-danger">Geannuleerd</span>
+          {% endif %}
+        {% endif %}
       </td>
       <td>
         {% if b.video_path %}

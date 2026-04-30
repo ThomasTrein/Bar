@@ -151,7 +151,7 @@ def product_nieuw():
 @admin_bp.route('/producten/<int:pid>/bewerken', methods=['POST'])
 @login_required
 def product_bewerken(pid):
-    old = query("SELECT foto_path, stock, aankoop_prijs FROM products WHERE id=?", (pid,), one=True)
+    old = query("SELECT foto_path, stock, aankoop_prijs, globally_locked FROM products WHERE id=?", (pid,), one=True)
     foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products') \
                 or (old['foto_path'] if old else '')
     naam  = request.form.get('naam', '').strip()
@@ -165,6 +165,7 @@ def product_bewerken(pid):
     # Aankoopprijs en stock worden NIET aangepast via admin productenbeheer
     huidige_stock    = old['stock']    if old else 0
     huidige_aankoop  = old['aankoop_prijs'] if old else 0
+    old_globally_locked = old['globally_locked'] if old else 0
 
     execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=?,bak_grootte=?,globally_locked=? WHERE id=?",
             (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, bak_grootte, globally_locked, pid))
@@ -174,7 +175,21 @@ def product_bewerken(pid):
             execute("INSERT INTO product_doors (product_id,deur) VALUES (?,?)", (pid, int(d)))
         except Exception:
             pass
-    add_log('admin', f"Product #{pid} bijgewerkt: {naam}")
+
+    # Sync person_blocked_products when globally_locked flag changes
+    if globally_locked and not old_globally_locked:
+        # 0 → 1: block for all persons
+        persons = query("SELECT id FROM persons")
+        if persons:
+            executemany(
+                "INSERT OR IGNORE INTO person_blocked_products (person_id, product_id) VALUES (?,?)",
+                [(p['id'], pid) for p in persons]
+            )
+    elif not globally_locked and old_globally_locked:
+        # 1 → 0: remove global block for all persons
+        execute("DELETE FROM person_blocked_products WHERE product_id=?", (pid,))
+
+    add_log('admin', f"Product #{pid} bijgewerkt: {naam}" + (" [nu geblokkeerd voor iedereen]" if globally_locked and not old_globally_locked else " [globale blokkade opgeheven]" if not globally_locked and old_globally_locked else ""))
     return redirect(url_for('admin.producten'))
 
 
@@ -369,9 +384,11 @@ def persoon_beperkingen(pid):
                      query("SELECT category_id FROM person_blocked_categories WHERE person_id=?", (pid,))}
     blocked_prods = {r['product_id'] for r in
                      query("SELECT product_id FROM person_blocked_products WHERE person_id=?", (pid,))}
+    globally_locked_ids = {r['id'] for r in query("SELECT id FROM products WHERE globally_locked=1")}
     return render_template('admin/person_restrictions.html',
                            persoon=p, categorieen=cats, producten=prods,
-                           blocked_cats=blocked_cats, blocked_prods=blocked_prods)
+                           blocked_cats=blocked_cats, blocked_prods=blocked_prods,
+                           globally_locked_ids=globally_locked_ids)
 
 
 # ─── Bestellingen ─────────────────────────────────────────────────────────────
@@ -384,7 +401,7 @@ def bestellingen():
         'datum_tot':  request.args.get('datum_tot', ''),
         'person_id':  request.args.get('person_id', type=int),
     }
-    sql = """SELECT o.id, o.tijdstip, o.type, o.geannuleerd, o.video_path,
+    sql = """SELECT o.id, o.tijdstip, o.type, o.geannuleerd, o.deur_niet_geopend, o.video_path,
                     p.voornaam, p.bijnaam,
                     COUNT(oi.id) as items,
                     SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal

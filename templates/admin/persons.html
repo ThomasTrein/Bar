@@ -3,12 +3,14 @@
 {% block content %}
 <div class="admin-page-header">
   <h1>Persoonsbeheer</h1>
+  <button class="btn-primary" onclick="toggleForm('nieuw-form')">Nieuwe persoon</button>
 </div>
 
-{# Nieuw persoon formulier (altijd zichtbaar) #}
-<div class="card" style="margin-bottom:24px">
-  <h3 style="margin:0 0 16px">Nieuwe persoon</h3>
-  <form method="POST" action="{{ url_for('admin.persoon_nieuw') }}" enctype="multipart/form-data" class="inline-form">
+{# Nieuw persoon formulier (verborgen, toggle via knop) #}
+<div id="nieuw-form" class="collapsible hidden">
+  <h2>Nieuwe persoon toevoegen</h2>
+  <form method="POST" action="{{ url_for('admin.persoon_nieuw') }}" enctype="multipart/form-data"
+        class="admin-form">
     <div class="form-row">
       <div class="form-group">
         <label>Voornaam *</label>
@@ -49,12 +51,6 @@
       <td class="action-cell">
         {% if not p.is_bond %}
         <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">Bewerk</button>
-        <a href="{{ url_for('admin.persoon_beperkingen', pid=p.id) }}" class="btn-sm btn-warning">Beperkingen</a>
-        <form method="POST" action="{{ url_for('admin.persoon_toggle', pid=p.id) }}" style="display:inline">
-          <button class="btn-sm {% if p.actief %}btn-warning{% else %}btn-primary{% endif %}">
-            {% if p.actief %}Deactiveren{% else %}Activeren{% endif %}
-          </button>
-        </form>
         <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
               style="display:inline"
               onsubmit="return confirm('Persoon verwijderen?')">
@@ -67,7 +63,7 @@
     <tr id="edit-{{ p.id }}" class="edit-row hidden">
       <td colspan="5">
         <form method="POST" action="{{ url_for('admin.persoon_bewerken', pid=p.id) }}"
-              enctype="multipart/form-data" class="inline-form">
+              enctype="multipart/form-data" class="admin-form inline-form">
           <div class="form-row">
             <div class="form-group">
               <label>Voornaam</label>
@@ -89,6 +85,15 @@
           <button type="submit" class="btn-primary">Opslaan</button>
           <button type="button" class="btn-secondary" onclick="toggleEditRow({{ p.id }})">Annuleren</button>
         </form>
+        {# Extra acties zichtbaar na klikken op Bewerk #}
+        <div class="edit-extra-actions">
+          <a href="{{ url_for('admin.persoon_beperkingen', pid=p.id) }}" class="btn-sm btn-warning">Beperkingen</a>
+          <form method="POST" action="{{ url_for('admin.persoon_toggle', pid=p.id) }}" style="display:inline">
+            <button class="btn-sm {% if p.actief %}btn-warning{% else %}btn-primary{% endif %}">
+              {% if p.actief %}Deactiveren{% else %}Activeren{% endif %}
+            </button>
+          </form>
+        </div>
       </td>
     </tr>
     {% endif %}
@@ -101,6 +106,9 @@
 <script>
   function toggleEditRow(id) {
     document.getElementById('edit-' + id).classList.toggle('hidden');
+  }
+  function toggleForm(id) {
+    document.getElementById(id).classList.toggle('hidden');
   }
 </script>
 {% endblock %}

@@ -48,7 +48,17 @@ def deur_status():
 
     if alle_klaar:
         stop_recording()
+        # Check if the order was cancelled because no door was opened
+        deur_niet_geopend = False
+        order_id = order.get('order_id')
+        if order_id:
+            row = query("SELECT deur_niet_geopend FROM orders WHERE id=?", (order_id,), one=True)
+            if row and row['deur_niet_geopend']:
+                deur_niet_geopend = True
         _clear_order()
+        return jsonify({'deuren': {str(k): v for k, v in status.items()},
+                        'alle_klaar': True,
+                        'deur_niet_geopend': deur_niet_geopend})
 
     return jsonify({'deuren': {str(k): v for k, v in status.items()},
                     'alle_klaar': alle_klaar})
