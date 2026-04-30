@@ -181,9 +181,25 @@ def product_bewerken(pid):
 @admin_bp.route('/producten/<int:pid>/verwijderen', methods=['POST'])
 @login_required
 def product_verwijderen(pid):
-    p = query("SELECT naam FROM products WHERE id=?", (pid,), one=True)
-    execute("UPDATE products SET actief=0 WHERE id=?", (pid,))
-    add_log('admin', f"Product verwijderd (soft): {p['naam'] if p else pid}")
+    p = query("SELECT naam, foto_path FROM products WHERE id=?", (pid,), one=True)
+    if not p:
+        return redirect(url_for('admin.producten'))
+    # Verwijder foreign key referenties (zet op NULL) voor de hard delete
+    execute("UPDATE order_items SET product_id=NULL WHERE product_id=?", (pid,))
+    execute("UPDATE shop_purchase_items SET product_id=NULL WHERE product_id=?", (pid,))
+    execute("UPDATE fifo_batches SET product_id=NULL WHERE product_id=?", (pid,))
+    # product_doors en person_blocked_products hebben ON DELETE CASCADE
+    execute("DELETE FROM products WHERE id=?", (pid,))
+    # Verwijder foto als die bestaat
+    if p['foto_path']:
+        try:
+            import os
+            foto = os.path.join(os.path.dirname(__file__), '..', p['foto_path'].lstrip('/'))
+            if os.path.exists(foto):
+                os.remove(foto)
+        except Exception:
+            pass
+    add_log('admin', f"Product permanent verwijderd: {p['naam']}")
     return redirect(url_for('admin.producten'))
 
 
@@ -292,8 +308,27 @@ def persoon_verwijderen(pid):
     p = query("SELECT * FROM persons WHERE id=?", (pid,), one=True)
     if not p or p['is_bond']:
         return redirect(url_for('admin.personen'))
-    execute("UPDATE persons SET actief=0 WHERE id=?", (pid,))
-    add_log('admin', f"Persoon #{pid} gedeactiveerd")
+    # Verwijder foreign key referenties (zet op NULL) voor de hard delete
+    execute("UPDATE order_items SET person_id=NULL WHERE person_id=?", (pid,))
+    execute("UPDATE orders SET gestart_door_id=NULL WHERE gestart_door_id=?", (pid,))
+    execute("UPDATE bar_evenings SET activator_id=NULL WHERE activator_id=?", (pid,))
+    execute("UPDATE bar_evenings SET deactivator_id=NULL WHERE deactivator_id=?", (pid,))
+    execute("UPDATE refill_sessions SET person_id=NULL WHERE person_id=?", (pid,))
+    execute("UPDATE shop_purchases SET person_id=NULL WHERE person_id=?", (pid,))
+    execute("UPDATE logs SET person_id=NULL WHERE person_id=?", (pid,))
+    execute("UPDATE betalingen SET person_id=NULL WHERE person_id=?", (pid,))
+    # person_blocked_products en person_blocked_categories hebben ON DELETE CASCADE
+    execute("DELETE FROM persons WHERE id=?", (pid,))
+    # Verwijder foto als die bestaat
+    if p['foto_path']:
+        try:
+            import os
+            foto = os.path.join(os.path.dirname(__file__), '..', p['foto_path'].lstrip('/'))
+            if os.path.exists(foto):
+                os.remove(foto)
+        except Exception:
+            pass
+    add_log('admin', f"Persoon permanent verwijderd: {p['voornaam']} {p['achternaam']}")
     return redirect(url_for('admin.personen'))
 
 

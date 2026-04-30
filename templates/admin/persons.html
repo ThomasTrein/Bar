@@ -57,7 +57,7 @@
         </form>
         <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
               style="display:inline"
-              onsubmit="return confirm('Persoon deactiveren?')">
+              onsubmit="return confirm('Persoon verwijderen?')">
           <button class="btn-sm btn-danger">Verwijder</button>
         </form>
         {% endif %}
