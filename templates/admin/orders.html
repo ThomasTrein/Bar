@@ -51,7 +51,7 @@
         <a href="{{ url_for('admin.bestelling_detail', oid=b.id) }}" class="btn-sm btn-secondary">Detail</a>
         {% if not b.geannuleerd %}
         <form method="POST" action="{{ url_for('admin.bestelling_verwijderen', oid=b.id) }}"
-              style="display:inline" onsubmit="return confirm('Bestelling annuleren?')">
+              style="display:inline" data-confirm="Bestelling annuleren?">
           <button class="btn-sm btn-danger">Annuleren</button>
         </form>
         {% endif %}

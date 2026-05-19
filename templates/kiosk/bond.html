@@ -28,7 +28,7 @@
         <div class="qty-row">
           <button type="button" class="qty-btn" onclick="changeQty(this,-1)">−</button>
           <input type="number" name="qty_{{ p.id }}" value="0"
-                 min="0" max="99" class="qty-input" id="qty-{{ p.id }}">
+                 min="0" max="99" class="qty-input" id="qty-{{ p.id }}" data-numeric-kbd="int">
           <button type="button" class="qty-btn" onclick="changeQty(this,1)">+</button>
         </div>
         {% if p.bak_grootte %}

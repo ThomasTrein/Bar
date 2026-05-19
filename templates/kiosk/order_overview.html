@@ -44,7 +44,7 @@
     </form>
     <form method="POST" action="{{ url_for('kiosk.bestelling_annuleren') }}">
       <input type="hidden" name="ot" value="{{ ot }}">
-      <button type="submit" class="btn-danger" onclick="return confirm('Annuleren?')">✕ Annuleren</button>
+      <button type="submit" class="btn-danger" data-confirm="Bestelling annuleren?">✕ Annuleren</button>
     </form>
   </div>
 </div>

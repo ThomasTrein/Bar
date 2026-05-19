@@ -17,22 +17,22 @@
   <div class="form-group">
     <label>Deur time-out (seconden)</label>
     <input type="number" name="deur_timeout_sec" value="{{ settings.get('deur_timeout_sec', 120) }}"
-           min="10" max="600" class="form-input">
+           min="10" max="600" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Screensaver time-out (minuten)</label>
     <input type="number" name="screensaver_timeout_min" value="{{ settings.get('screensaver_timeout_min', 2) }}"
-           min="1" max="60" class="form-input">
+           min="1" max="60" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Admin auto-logout (minuten)</label>
     <input type="number" name="admin_logout_min" value="{{ settings.get('admin_logout_min', 10) }}"
-           min="1" max="120" class="form-input">
+           min="1" max="120" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Video bewaarperiode (dagen)</label>
     <input type="number" name="video_bewaar_dagen" value="{{ settings.get('video_bewaar_dagen', 40) }}"
-           min="1" max="365" class="form-input">
+           min="1" max="365" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Prijs tonen op kiosk</label>
@@ -45,13 +45,13 @@
     <label>Aantal dranken naast elkaar (bestellingsscherm)</label>
     <input type="number" name="product_kolommen"
            value="{{ settings.get('product_kolommen', '2') }}"
-           min="1" max="6" class="form-input">
+           min="1" max="6" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Aantal personen naast elkaar (naamselectie)</label>
     <input type="number" name="persoon_kolommen"
            value="{{ settings.get('persoon_kolommen', '4') }}"
-           min="1" max="8" class="form-input">
+           min="1" max="8" class="form-input" data-numeric-kbd="int">
   </div>
   <div class="form-group">
     <label>Screensaver achtergrondafbeelding</label>
@@ -82,7 +82,7 @@
   </p>
   <form method="POST" action="{{ url_for('admin.backup_upload') }}"
         enctype="multipart/form-data"
-        onsubmit="return confirm('Database vervangen vanuit backup? Huidige data wordt overschreven (backup wordt eerst aangemaakt).')"
+        data-confirm="Database vervangen vanuit backup? Huidige data wordt overschreven (backup wordt eerst aangemaakt)."
         style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <input type="file" name="backup_bestand" accept=".db" class="form-file-input" required>
     <button type="submit" class="btn-primary">Herstellen</button>
@@ -131,9 +131,14 @@
 
 {% block scripts %}
 <script>
-  // Sluit modal bij klik buiten de box
+  // Sluit modal bij klik buiten de box, maar NIET als virtual keyboard actief is
   document.getElementById('leegmakenModal').addEventListener('click', function(e) {
-    if (e.target === this) this.style.display = 'none';
+    if (e.target === this) {
+      // Sluit modal alleen als het virtual keyboard niet actief is
+      var vkbd = document.getElementById('vkbd');
+      if (vkbd && vkbd.classList.contains('vkbd-on')) return;
+      this.style.display = 'none';
+    }
   });
 </script>
 {% endblock %}

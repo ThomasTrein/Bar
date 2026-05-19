@@ -53,7 +53,7 @@
         <button class="btn-sm btn-secondary" onclick="toggleEditRow({{ p.id }})">Bewerk</button>
         <form method="POST" action="{{ url_for('admin.persoon_verwijderen', pid=p.id) }}"
               style="display:inline"
-              onsubmit="return confirm('Persoon verwijderen?')">
+              data-confirm="Persoon '{{ p.bijnaam or p.voornaam }}' permanent verwijderen?">
           <button class="btn-sm btn-danger">Verwijder</button>
         </form>
         {% endif %}

@@ -1,0 +1,98 @@
+{% extends "base_admin.html" %}
+{% block title %}FIFO Batches — KSA Bar Admin{% endblock %}
+{% block content %}
+<div class="admin-page-header">
+  <h1>FIFO Batches</h1>
+</div>
+
+<form method="GET" class="filter-form">
+  <select name="product_id" class="form-input">
+    <option value="">Alle producten</option>
+    {% for p in producten %}
+    <option value="{{ p.id }}" {% if filters.product_id == p.id %}selected{% endif %}>
+      {{ p.naam }}
+    </option>
+    {% endfor %}
+  </select>
+  <input type="date" name="datum_van" value="{{ filters.datum_van or '' }}" class="form-input" data-datepicker="1">
+  <input type="date" name="datum_tot" value="{{ filters.datum_tot or '' }}" class="form-input" data-datepicker="1">
+  <button type="submit" class="btn-primary">Filteren</button>
+  <a href="{{ url_for('admin.fifo_overzicht') }}" class="btn-secondary">Reset</a>
+</form>
+
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Product</th>
+      <th>Datum</th>
+      <th>Origineel</th>
+      <th>Resterend</th>
+      <th>Prijs/stuk (€)</th>
+      <th>Bron</th>
+      <th>Acties</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for b in batches %}
+    <tr class="{% if b.hoeveelheid_resterend == 0 %}row-inactive{% endif %}" id="batch-row-{{ b.id }}">
+      <td>{{ b.id }}</td>
+      <td>{{ b.product_naam or '—' }}</td>
+      <td>{{ b.datum[:16] if b.datum else '—' }}</td>
+      <td>{{ b.hoeveelheid_origineel }}</td>
+      <td>{{ b.hoeveelheid_resterend }}</td>
+      <td>{{ "%.4f"|format(b.aankoop_prijs) }}</td>
+      <td>
+        {% if b.aankoop_id %}
+          <a href="{{ url_for('admin.winkelaankoop_detail', aid=b.aankoop_id) }}" class="btn-sm btn-secondary">Aankoop #{{ b.aankoop_id }}</a>
+        {% elif b.aankoop_prijs == 0 %}
+          <span class="text-dim">Gevonden/reconciliatie</span>
+        {% else %}
+          <span class="text-dim">Handmatig</span>
+        {% endif %}
+      </td>
+      <td class="action-cell">
+        <button type="button" class="btn-sm btn-secondary"
+                onclick="toggleBatchEdit({{ b.id }})">Bewerken</button>
+        <form method="POST" action="{{ url_for('admin.fifo_batch_verwijderen', bid=b.id) }}" style="display:inline"
+              data-confirm="FIFO batch #{{ b.id }} ({{ b.product_naam }}) verwijderen? De product-stock wordt automatisch herberekend.">
+          <input type="hidden" name="product_id_filter" value="{{ filters.product_id or '' }}">
+          <button type="submit" class="btn-sm btn-danger">Verwijderen</button>
+        </form>
+      </td>
+    </tr>
+    <tr id="batch-edit-{{ b.id }}" style="display:none;background:var(--surface-alt)">
+      <td colspan="8">
+        <form method="POST" action="{{ url_for('admin.fifo_batch_aanpassen', bid=b.id) }}"
+              style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;padding:8px 0">
+          <input type="hidden" name="product_id_filter" value="{{ filters.product_id or '' }}">
+          <div class="form-group" style="margin:0">
+            <label style="font-size:13px">Hoeveelheid resterend</label>
+            <input type="number" name="hoeveelheid_resterend" value="{{ b.hoeveelheid_resterend }}"
+                   min="0" class="form-input short-input" data-numeric-kbd="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label style="font-size:13px">Aankoopprijs/stuk (€)</label>
+            <input type="number" name="aankoop_prijs" value="{{ b.aankoop_prijs }}"
+                   min="0" step="0.0001" class="form-input short-input" data-numeric-kbd="1">
+          </div>
+          <button type="submit" class="btn-primary">Opslaan</button>
+          <button type="button" class="btn-secondary" onclick="toggleBatchEdit({{ b.id }})">Annuleren</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">Geen FIFO batches gevonden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleBatchEdit(id) {
+    var row = document.getElementById('batch-edit-' + id);
+    row.style.display = (row.style.display === 'none') ? '' : 'none';
+  }
+</script>
+{% endblock %}

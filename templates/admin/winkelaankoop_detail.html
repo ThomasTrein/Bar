@@ -32,12 +32,12 @@
         <td>{{ item.product_naam }}</td>
         <td>
           <input type="number" name="qty_{{ item.id }}" value="{{ item.hoeveelheid }}"
-                 min="0" class="form-input short-input" data-no-vkbd="1">
+                 min="0" class="form-input short-input" data-numeric-kbd="int">
         </td>
         <td>
           <input type="number" step="0.01" name="prijs_{{ item.id }}"
                  value="{{ '%.2f'|format(item.aankoop_prijs_per_stuk) }}"
-                 min="0" class="form-input short-input" data-no-vkbd="1">
+                 min="0" class="form-input short-input" data-numeric-kbd="1">
         </td>
         <td>€{{ "%.2f"|format(sub) }}</td>
       </tr>

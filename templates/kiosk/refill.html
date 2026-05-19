@@ -101,8 +101,9 @@
   }
 
   function stopAanvullen() {
-    if (!confirm('Stoppen zonder wijzigingen op te slaan?')) return;
-    submitStop('{}');
+    window.customConfirm('Stoppen zonder wijzigingen op te slaan?', function() {
+      submitStop('{}');
+    });
   }
 </script>
 {% endblock %}

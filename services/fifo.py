@@ -157,6 +157,59 @@ def return_to_oldest_fifo(product_id: int, hoeveelheid: int):
     conn.close()
 
 
+def recalculate_stock_from_fifo(product_id: int):
+    """Herbereken de product-stock als som van alle hoeveelheid_resterend in fifo_batches."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT COALESCE(SUM(hoeveelheid_resterend), 0) as totaal FROM fifo_batches WHERE product_id = ?",
+        (product_id,)
+    ).fetchone()
+    conn.execute(
+        "UPDATE products SET stock = ? WHERE id = ?",
+        (row['totaal'], product_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def reconcile_stock(product_id: int, counted_qty: int):
+    """
+    Breng de stock in overeenstemming met een fysieke telling.
+    - Meer geteld dan systeem → maak nieuwe FIFO-batch aan met prijs €0 (gevonden stock).
+    - Minder geteld → consume het verschil van de oudste batches.
+    """
+    conn = get_db()
+    current = conn.execute(
+        "SELECT stock FROM products WHERE id = ?", (product_id,)
+    ).fetchone()
+    conn.close()
+
+    if current is None:
+        return
+
+    current_stock = current['stock']
+    diff = counted_qty - current_stock
+
+    if diff > 0:
+        # Meer geteld dan het systeem: voeg toe als €0 batch
+        conn = get_db()
+        conn.execute(
+            """INSERT INTO fifo_batches
+               (product_id, aankoop_prijs, hoeveelheid_origineel, hoeveelheid_resterend)
+               VALUES (?, 0, ?, ?)""",
+            (product_id, diff, diff)
+        )
+        conn.execute(
+            "UPDATE products SET stock = stock + ? WHERE id = ?",
+            (diff, product_id)
+        )
+        conn.commit()
+        conn.close()
+    elif diff < 0:
+        # Minder geteld dan het systeem: consume van oudste batches
+        consume_stock(product_id, abs(diff))
+
+
 def get_fifo_cost_per_unit(product_id: int) -> float:
     conn = get_db()
     batches = conn.execute(

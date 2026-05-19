@@ -47,7 +47,7 @@
     <div class="inv-row">
       <label class="inv-label">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</label>
       <input type="number" name="product_{{ p.id }}" value="{{ p.stock if p.stock > 0 else 0 }}"
-             min="0" class="inv-input">
+             min="0" class="inv-input" data-numeric-kbd="int">
     </div>
     {% endfor %}
     <div class="form-actions" style="padding:16px">
@@ -96,7 +96,7 @@
     <div class="inv-row">
       <label class="inv-label">{{ p.naam }}</label>
       <input type="number" name="product_{{ p.id }}" value="{{ p.stock if p.stock > 0 else 0 }}"
-             min="0" class="inv-input">
+             min="0" class="inv-input" data-numeric-kbd="int">
     </div>
     {% endfor %}
     <div class="form-actions" style="padding:16px">

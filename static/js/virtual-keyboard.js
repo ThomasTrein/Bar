@@ -39,7 +39,7 @@
     s.id = 'vkbd-css';
     s.textContent =
       '#vkbd{' +
-        'position:fixed;bottom:0;left:0;right:0;z-index:8000;' +
+        'position:fixed;bottom:0;left:0;right:0;z-index:10000;' +
         'background:#13131a;border-top:1px solid #2b2b38;' +
         'padding:8px 6px 14px;user-select:none;' +
         'transform:translateY(102%);transition:transform .22s ease;' +

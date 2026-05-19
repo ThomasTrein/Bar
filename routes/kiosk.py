@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from database.db import get_db, query, execute, executemany, add_log, get_setting
 from hardware.gpio_controller import get_fridge_controller
 from hardware.camera import start_recording, stop_recording
-from services.fifo import consume_stock, restore_stock
+from services.fifo import consume_stock, restore_stock, reconcile_stock
 from config import UPLOADS_PERSONS_DIR
 
 kiosk_bp = Blueprint('kiosk', __name__)
@@ -420,6 +420,13 @@ def baravond_start():
     inv = {k.replace('product_', ''): int(v or 0)
            for k, v in request.form.items() if k.startswith('product_')}
 
+    # Reconcilieer FIFO voor elk product op basis van de getelde inventaris
+    for prod_id_str, counted in inv.items():
+        try:
+            reconcile_stock(int(prod_id_str), counted)
+        except Exception:
+            pass
+
     rec = start_recording('baravond')
     bar_id = execute(
         "INSERT INTO bar_evenings (activator_id, start_inventaris, video_path, naam) VALUES (?,?,?,?)",
@@ -448,6 +455,13 @@ def baravond_stop():
                verbruik=?, actief=0, deactivator_id=? WHERE id=?""",
             (json.dumps(eind), json.dumps(verbruik), pid, bar_id)
         )
+
+    # Reconcilieer FIFO voor elk product op basis van de eind-inventaris
+    for prod_id_str, counted in eind.items():
+        try:
+            reconcile_stock(int(prod_id_str), counted)
+        except Exception:
+            pass
 
     get_fridge_controller().lock_all()
     stop_recording()

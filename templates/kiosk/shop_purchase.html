@@ -15,10 +15,10 @@
     <div class="shop-row">
       <div class="shop-naam">{{ p.naam }}</div>
       <label class="shop-label">Aantal</label>
-      <input type="number" name="qty_{{ p.id }}" value="0" min="0" class="shop-qty">
+      <input type="number" name="qty_{{ p.id }}" value="0" min="0" class="shop-qty" data-numeric-kbd="int">
       <label class="shop-label">Prijs/stuk (€)</label>
       <input type="number" name="prijs_{{ p.id }}" value="0.00"
-             min="0" step="0.01" class="shop-prijs">
+             min="0" step="0.01" class="shop-prijs" data-numeric-kbd="1">
     </div>
     {% endfor %}
 

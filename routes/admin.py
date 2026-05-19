@@ -6,6 +6,7 @@ from flask import (Blueprint, render_template, request, redirect,
                    url_for, session, send_file, jsonify, flash)
 from database.db import get_db, query, execute, executemany, add_log, get_setting, set_setting
 from config import UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR, DATABASE_PATH
+from services.fifo import reconcile_stock, recalculate_stock_from_fifo
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -215,6 +216,22 @@ def product_verwijderen(pid):
         except Exception:
             pass
     add_log('admin', f"Product permanent verwijderd: {p['naam']}")
+    return redirect(url_for('admin.producten'))
+
+
+@admin_bp.route('/producten/<int:pid>/stock-aanpassen', methods=['POST'])
+@login_required
+def product_stock_aanpassen(pid):
+    p = query("SELECT naam, stock FROM products WHERE id=?", (pid,), one=True)
+    if not p:
+        return redirect(url_for('admin.producten'))
+    nieuwe_stock = request.form.get('nieuwe_stock', type=int)
+    if nieuwe_stock is None or nieuwe_stock < 0:
+        flash('Ongeldige stockwaarde.', 'error')
+        return redirect(url_for('admin.producten'))
+    reconcile_stock(pid, nieuwe_stock)
+    add_log('admin', f"Stock handmatig aangepast voor {p['naam']}: {p['stock']} → {nieuwe_stock}")
+    flash(f"Stock van {p['naam']} aangepast naar {nieuwe_stock}.", 'success')
     return redirect(url_for('admin.producten'))
 
 
@@ -1095,3 +1112,100 @@ def _save_foto(foto_file, upload_dir: str, subfolder: str) -> str:
     naam = f"{uuid.uuid4().hex}.{ext}"
     foto_file.save(os.path.join(upload_dir, naam))
     return f"{subfolder}/{naam}"
+
+
+# ─── FIFO overzicht ───────────────────────────────────────────────────────────
+
+@admin_bp.route('/fifo')
+@login_required
+def fifo_overzicht():
+    product_filter = request.args.get('product_id', type=int)
+    datum_van  = request.args.get('datum_van', '')
+    datum_tot  = request.args.get('datum_tot', '')
+
+    where_parts = []
+    params = []
+
+    if product_filter:
+        where_parts.append("fb.product_id = ?")
+        params.append(product_filter)
+    if datum_van:
+        where_parts.append("fb.datum >= ?")
+        params.append(datum_van)
+    if datum_tot:
+        where_parts.append("fb.datum <= ?")
+        params.append(datum_tot + ' 23:59:59')
+
+    where_sql = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
+    batches = query(
+        f"""SELECT fb.id, fb.product_id, p.naam as product_naam,
+                   fb.datum, fb.hoeveelheid_origineel, fb.hoeveelheid_resterend,
+                   fb.aankoop_prijs, fb.aankoop_id
+            FROM fifo_batches fb
+            LEFT JOIN products p ON fb.product_id = p.id
+            {where_sql}
+            ORDER BY fb.datum DESC, fb.id DESC""",
+        params
+    )
+
+    producten = query("SELECT id, naam FROM products ORDER BY naam")
+
+    filters = {
+        'product_id': product_filter,
+        'datum_van':  datum_van,
+        'datum_tot':  datum_tot,
+    }
+    return render_template('admin/fifo.html', batches=batches,
+                           producten=producten, filters=filters)
+
+
+@admin_bp.route('/fifo/<int:bid>/aanpassen', methods=['POST'])
+@login_required
+def fifo_batch_aanpassen(bid):
+    batch = query("SELECT * FROM fifo_batches WHERE id=?", (bid,), one=True)
+    if not batch:
+        flash('Batch niet gevonden.', 'error')
+        return redirect(url_for('admin.fifo_overzicht'))
+
+    nieuwe_resterend = request.form.get('hoeveelheid_resterend', type=int)
+    nieuwe_prijs     = request.form.get('aankoop_prijs', type=float)
+
+    if nieuwe_resterend is None or nieuwe_resterend < 0:
+        flash('Ongeldige hoeveelheid.', 'error')
+        return redirect(url_for('admin.fifo_overzicht'))
+    if nieuwe_prijs is None or nieuwe_prijs < 0:
+        flash('Ongeldige prijs.', 'error')
+        return redirect(url_for('admin.fifo_overzicht'))
+
+    execute(
+        "UPDATE fifo_batches SET hoeveelheid_resterend=?, aankoop_prijs=? WHERE id=?",
+        (nieuwe_resterend, nieuwe_prijs, bid)
+    )
+    if batch['product_id']:
+        recalculate_stock_from_fifo(batch['product_id'])
+
+    add_log('admin', f"FIFO batch #{bid} aangepast: resterend={nieuwe_resterend}, prijs={nieuwe_prijs}")
+    flash('Batch aangepast.', 'success')
+    return redirect(url_for('admin.fifo_overzicht',
+                             product_id=request.form.get('product_id_filter') or ''))
+
+
+@admin_bp.route('/fifo/<int:bid>/verwijderen', methods=['POST'])
+@login_required
+def fifo_batch_verwijderen(bid):
+    batch = query("SELECT * FROM fifo_batches WHERE id=?", (bid,), one=True)
+    if not batch:
+        flash('Batch niet gevonden.', 'error')
+        return redirect(url_for('admin.fifo_overzicht'))
+
+    product_id = batch['product_id']
+    execute("DELETE FROM fifo_batches WHERE id=?", (bid,))
+    if product_id:
+        recalculate_stock_from_fifo(product_id)
+
+    add_log('admin', f"FIFO batch #{bid} verwijderd")
+    flash('Batch verwijderd.', 'success')
+    return redirect(url_for('admin.fifo_overzicht',
+                             product_id=request.form.get('product_id_filter') or ''))
+

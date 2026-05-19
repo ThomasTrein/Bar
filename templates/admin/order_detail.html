@@ -48,7 +48,7 @@
 
 <div class="section-divider"></div>
 <form method="POST" action="{{ url_for('admin.bestelling_verwijderen', oid=order.id) }}"
-      onsubmit="return confirm('Bestelling annuleren en stock herstellen?')">
+      data-confirm="Bestelling annuleren en stock herstellen?">
   <button class="btn-danger">Bestelling annuleren</button>
 </form>
 {% endif %}
