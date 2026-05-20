@@ -98,29 +98,83 @@
     document.body.appendChild(kbd);
   }
 
+  // ── Scroll helpers ────────────────────────────────────────────────────────────
+  var _paddedEl = null;
+  var _paddedOrig = '';
+
+  function getScrollParent(el) {
+    el = el.parentElement;
+    while (el && el !== document.body) {
+      var oy = window.getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+      el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function scrollAboveKbd(input) {
+    var kbdH = kbd ? kbd.offsetHeight : 300;
+    var margin = 24;
+    var targetBottom = window.innerHeight - kbdH - margin;
+
+    var scrollEl = getScrollParent(input);
+
+    // Add bottom padding once so there is room to scroll
+    if (_paddedEl !== scrollEl) {
+      if (_paddedEl) _paddedEl.style.paddingBottom = _paddedOrig;
+      _paddedEl = scrollEl;
+      _paddedOrig = scrollEl.style.paddingBottom;
+      var curPad = parseInt(window.getComputedStyle(scrollEl).paddingBottom) || 0;
+      scrollEl.style.paddingBottom = (curPad + kbdH + margin) + 'px';
+    }
+
+    var rect = input.getBoundingClientRect();
+    if (rect.bottom > targetBottom) {
+      scrollEl.scrollTop += rect.bottom - targetBottom;
+    }
+  }
+
+  function restorePadding() {
+    if (_paddedEl) {
+      _paddedEl.style.paddingBottom = _paddedOrig;
+      _paddedEl = null;
+      _paddedOrig = '';
+    }
+  }
+
   // ── Actions ──────────────────────────────────────────────────────────────────
   function type(char) {
     if (!activeInput) return;
     var v = activeInput.value;
-    var start = activeInput.selectionStart;
-    var end = activeInput.selectionEnd;
-    activeInput.value = v.slice(0, start) + char + v.slice(end);
-    var pos = start + char.length;
-    activeInput.setSelectionRange(pos, pos);
+    // type="number" does not support selectionStart — always append
+    if (activeInput.selectionStart === null) {
+      // Clear leading "0" when typing the first real digit
+      activeInput.value = (v === '0' && char !== '.') ? char : v + char;
+    } else {
+      var start = activeInput.selectionStart;
+      var end = activeInput.selectionEnd;
+      activeInput.value = v.slice(0, start) + char + v.slice(end);
+      try { activeInput.setSelectionRange(start + char.length, start + char.length); } catch (e) {}
+    }
     activeInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   function doBack() {
     if (!activeInput) return;
     var v = activeInput.value;
-    var start = activeInput.selectionStart;
-    var end = activeInput.selectionEnd;
-    if (start !== end) {
-      activeInput.value = v.slice(0, start) + v.slice(end);
-      activeInput.setSelectionRange(start, start);
-    } else if (start > 0) {
-      activeInput.value = v.slice(0, start - 1) + v.slice(start);
-      activeInput.setSelectionRange(start - 1, start - 1);
+    // type="number" does not support selectionStart — delete from end
+    if (activeInput.selectionStart === null) {
+      activeInput.value = v.slice(0, -1);
+    } else {
+      var start = activeInput.selectionStart;
+      var end = activeInput.selectionEnd;
+      if (start !== end) {
+        activeInput.value = v.slice(0, start) + v.slice(end);
+        try { activeInput.setSelectionRange(start, start); } catch (e) {}
+      } else if (start > 0) {
+        activeInput.value = v.slice(0, start - 1) + v.slice(start);
+        try { activeInput.setSelectionRange(start - 1, start - 1); } catch (e) {}
+      }
     }
     activeInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
@@ -147,14 +201,13 @@
       dotBtn.style.display = isInt ? 'none' : '';
     }
     kbd.classList.add('numkbd-on');
-    // Scroll to make input visible above keyboard
-    setTimeout(function () {
-      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 250);
+    // After keyboard animation, scroll input into view above keyboard
+    setTimeout(function () { scrollAboveKbd(input); }, 260);
   }
 
   function hide() {
     if (kbd) kbd.classList.remove('numkbd-on');
+    restorePadding();
     activeInput = null;
   }
 

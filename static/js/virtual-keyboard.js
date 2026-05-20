@@ -227,6 +227,49 @@
     hide();
   }
 
+  // ── Scroll helpers ────────────────────────────────────────────────────────────
+  var _paddedEl = null;
+  var _paddedOrig = '';
+
+  function getScrollParent(el) {
+    el = el.parentElement;
+    while (el && el !== document.body) {
+      var oy = window.getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+      el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function scrollAboveKbd(input) {
+    var kbdH = kbd ? kbd.offsetHeight : 260;
+    var margin = 24;
+    var targetBottom = window.innerHeight - kbdH - margin;
+
+    var scrollEl = getScrollParent(input);
+
+    if (_paddedEl !== scrollEl) {
+      if (_paddedEl) _paddedEl.style.paddingBottom = _paddedOrig;
+      _paddedEl = scrollEl;
+      _paddedOrig = scrollEl.style.paddingBottom;
+      var curPad = parseInt(window.getComputedStyle(scrollEl).paddingBottom) || 0;
+      scrollEl.style.paddingBottom = (curPad + kbdH + margin) + 'px';
+    }
+
+    var rect = input.getBoundingClientRect();
+    if (rect.bottom > targetBottom) {
+      scrollEl.scrollTop += rect.bottom - targetBottom;
+    }
+  }
+
+  function restorePadding() {
+    if (_paddedEl) {
+      _paddedEl.style.paddingBottom = _paddedOrig;
+      _paddedEl = null;
+      _paddedOrig = '';
+    }
+  }
+
   // ── Show / hide ───────────────────────────────────────────────────────────
   function show(input) {
     activeInput = input;
@@ -234,11 +277,13 @@
     render();
     requestAnimationFrame(function(){
       kbd.classList.add('vkbd-on');
+      setTimeout(function() { scrollAboveKbd(input); }, 260);
     });
   }
 
   function hide() {
     if (kbd) kbd.classList.remove('vkbd-on');
+    restorePadding();
     activeInput = null;
   }
 

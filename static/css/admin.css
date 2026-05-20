@@ -73,6 +73,7 @@ body.admin-body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
+  touch-action: pan-y;
 }
 
 /* ── Scrollbar ──────────────────────────────────────── */
