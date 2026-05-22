@@ -21,7 +21,7 @@
 
 <table class="admin-table">
   <thead>
-    <tr><th>Naam</th><th>Bestellingen</th><th>Totaal</th></tr>
+    <tr><th>Naam</th><th>Bestellingen</th><th>Niet aangerekend</th><th>Totaal</th></tr>
   </thead>
   <tbody>
     {% for r in overzicht %}
@@ -33,13 +33,20 @@
         {% if r.is_bond %}<span class="badge-special">KSA</span>{% endif %}
       </td>
       <td>{{ r.bestellingen }}</td>
+      <td>
+        {% if r.bestellingen_niet_geopend %}
+          <span class="badge-danger">{{ r.bestellingen_niet_geopend }}x deuren nooit geopend</span>
+        {% else %}
+          —
+        {% endif %}
+      </td>
       <td><strong>€{{ "%.2f"|format(r.totaal) }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="2"><strong>Totaal omzet</strong></td>
+      <td colspan="3"><strong>Totaal omzet</strong></td>
       <td><strong>€{{ "%.2f"|format(overzicht | sum(attribute='totaal')) }}</strong></td>
     </tr>
   </tfoot>

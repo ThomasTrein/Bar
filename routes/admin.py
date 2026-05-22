@@ -153,8 +153,15 @@ def product_nieuw():
 @login_required
 def product_bewerken(pid):
     old = query("SELECT foto_path, stock, aankoop_prijs, globally_locked FROM products WHERE id=?", (pid,), one=True)
-    foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products') \
-                or (old['foto_path'] if old else '')
+    oude_foto_path = (old['foto_path'] if old else '') or ''
+    nieuwe_foto_path = _save_foto(request.files.get('foto'), UPLOADS_PRODUCTS_DIR, 'products')
+    verwijder_foto = request.form.get('verwijder_foto') == '1'
+    if nieuwe_foto_path:
+        foto_path = nieuwe_foto_path
+    elif verwijder_foto:
+        foto_path = ''
+    else:
+        foto_path = oude_foto_path
     naam  = request.form.get('naam', '').strip()
     cat   = request.form.get('categorie_id', type=int)
     prijs = request.form.get('verkoop_prijs', type=float)
@@ -170,6 +177,11 @@ def product_bewerken(pid):
 
     execute("UPDATE products SET naam=?,categorie_id=?,verkoop_prijs=?,aankoop_prijs=?,actief=?,stock=?,foto_path=?,bak_grootte=?,globally_locked=? WHERE id=?",
             (naam, cat, prijs, huidige_aankoop, actief, huidige_stock, foto_path, bak_grootte, globally_locked, pid))
+
+    # Ruim oude foto op bij vervanging of expliciete verwijdering.
+    if oude_foto_path and oude_foto_path != foto_path:
+        _delete_uploaded_foto(oude_foto_path, UPLOADS_PRODUCTS_DIR)
+
     execute("DELETE FROM product_doors WHERE product_id=?", (pid,))
     for d in deuren:
         try:
@@ -322,14 +334,27 @@ def persoon_bewerken(pid):
     if not p or p['is_bond']:
         return redirect(url_for('admin.personen'))
 
-    foto_path = _save_foto(request.files.get('foto'), UPLOADS_PERSONS_DIR, 'persons') \
-                or p['foto_path']
+    oude_foto_path = p['foto_path'] or ''
+    nieuwe_foto_path = _save_foto(request.files.get('foto'), UPLOADS_PERSONS_DIR, 'persons')
+    verwijder_foto = request.form.get('verwijder_foto') == '1'
+    if nieuwe_foto_path:
+        foto_path = nieuwe_foto_path
+    elif verwijder_foto:
+        foto_path = ''
+    else:
+        foto_path = oude_foto_path
+
+    actief = p['actief']
     execute("UPDATE persons SET voornaam=?,achternaam=?,bijnaam=?,actief=?,foto_path=? WHERE id=?",
             (request.form.get('voornaam','').strip(),
              request.form.get('achternaam','').strip(),
              request.form.get('bijnaam','').strip(),
-             1 if request.form.get('actief') else 0,
+             actief,
              foto_path, pid))
+
+    if oude_foto_path and oude_foto_path != foto_path:
+        _delete_uploaded_foto(oude_foto_path, UPLOADS_PERSONS_DIR)
+
     add_log('admin', f"Persoon #{pid} bijgewerkt")
     return redirect(url_for('admin.personen'))
 
@@ -450,8 +475,8 @@ def bestelling_detail(oid):
     items = query(
         """SELECT oi.*, p.voornaam, p.bijnaam, pr.naam as product_naam
            FROM order_items oi
-           JOIN persons p  ON oi.person_id=p.id
-           JOIN products pr ON oi.product_id=pr.id
+           LEFT JOIN persons p  ON oi.person_id=p.id
+           LEFT JOIN products pr ON oi.product_id=pr.id
            WHERE oi.order_id=?""", (oid,)
     )
     return render_template('admin/order_detail.html', order=order, items=items)
@@ -502,11 +527,13 @@ def rekening():
 
     overzicht = query(
         """SELECT p.id, p.voornaam, p.achternaam, p.bijnaam, p.is_bond,
-               COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot),0) as totaal,
-               COUNT(DISTINCT o.id) as bestellingen
+               COALESCE(SUM(CASE WHEN o.geannuleerd=0 AND o.deur_niet_geopend=0
+                                 THEN oi.hoeveelheid * oi.verkoop_prijs_snapshot ELSE 0 END),0) as totaal,
+               COUNT(DISTINCT CASE WHEN o.geannuleerd=0 AND o.deur_niet_geopend=0 THEN o.id END) as bestellingen,
+               COUNT(DISTINCT CASE WHEN o.deur_niet_geopend=1 THEN o.id END) as bestellingen_niet_geopend
            FROM persons p
            LEFT JOIN order_items oi ON oi.person_id=p.id
-           LEFT JOIN orders o ON oi.order_id=o.id AND o.geannuleerd=0
+           LEFT JOIN orders o ON oi.order_id=o.id
                AND o.tijdstip BETWEEN ? AND ?
            WHERE p.actief=1
            GROUP BY p.id HAVING totaal > 0
@@ -529,7 +556,7 @@ def rekening_persoon(pid):
         """SELECT COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot), 0) as totaal
            FROM order_items oi
            JOIN orders o ON oi.order_id=o.id
-           WHERE oi.person_id=? AND o.geannuleerd=0""",
+           WHERE oi.person_id=? AND o.geannuleerd=0 AND o.deur_niet_geopend=0""",
         (pid,), one=True
     )['totaal']
 
@@ -555,19 +582,19 @@ def rekening_persoon(pid):
            FROM order_items oi
            JOIN products pr ON oi.product_id=pr.id
            JOIN orders o ON oi.order_id=o.id
-           WHERE oi.person_id=? AND o.geannuleerd=0
+           WHERE oi.person_id=? AND o.geannuleerd=0 AND o.deur_niet_geopend=0
            GROUP BY pr.id, oi.verkoop_prijs_snapshot ORDER BY pr.naam""",
         (pid,)
     )
 
     # Individuele bestellingen
     bestellingen = query(
-        """SELECT o.id, o.tijdstip, o.type,
+        """SELECT o.id, o.tijdstip, o.type, o.deur_niet_geopend,
                COUNT(oi.id) as items,
-               SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal
+               COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot),0) as totaal
            FROM orders o
            JOIN order_items oi ON oi.order_id=o.id
-           WHERE oi.person_id=? AND o.geannuleerd=0
+           WHERE oi.person_id=? AND (o.geannuleerd=0 OR o.deur_niet_geopend=1)
            GROUP BY o.id ORDER BY o.tijdstip DESC""",
         (pid,)
     )
@@ -579,7 +606,7 @@ def rekening_persoon(pid):
            FROM order_items oi
            JOIN products pr ON oi.product_id=pr.id
            JOIN orders o ON oi.order_id=o.id
-           WHERE oi.person_id=? AND o.geannuleerd=0""",
+           WHERE oi.person_id=? AND o.geannuleerd=0 AND o.deur_niet_geopend=0""",
         (pid,), one=True
     )
     omzet  = winst_data['omzet']  or 0
@@ -621,7 +648,7 @@ def rekening_sluiten(pid):
     totaal_orders = query(
         """SELECT COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot), 0) as totaal
            FROM order_items oi JOIN orders o ON oi.order_id=o.id
-           WHERE oi.person_id=? AND o.geannuleerd=0""",
+           WHERE oi.person_id=? AND o.geannuleerd=0 AND o.deur_niet_geopend=0""",
         (pid,), one=True
     )['totaal']
     totaal_betalingen = query(
@@ -658,7 +685,7 @@ def rekening_export():
            JOIN persons p  ON oi.person_id=p.id
            JOIN products pr ON oi.product_id=pr.id
            JOIN orders o ON oi.order_id=o.id
-           WHERE o.geannuleerd=0 AND o.tijdstip BETWEEN ? AND ?
+           WHERE o.geannuleerd=0 AND o.deur_niet_geopend=0 AND o.tijdstip BETWEEN ? AND ?
            GROUP BY p.id, pr.id, oi.verkoop_prijs_snapshot
            ORDER BY p.is_bond, p.voornaam, pr.naam""",
         (datum_van, datum_tot + ' 23:59:59')
@@ -1112,6 +1139,19 @@ def _save_foto(foto_file, upload_dir: str, subfolder: str) -> str:
     naam = f"{uuid.uuid4().hex}.{ext}"
     foto_file.save(os.path.join(upload_dir, naam))
     return f"{subfolder}/{naam}"
+
+
+def _delete_uploaded_foto(rel_path: str, upload_dir: str):
+    """Verwijder een foto veilig uit de verwachte uploadmap."""
+    if not rel_path:
+        return
+    try:
+        bestandsnaam = os.path.basename(rel_path)
+        full_path = os.path.join(upload_dir, bestandsnaam)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+    except Exception:
+        pass
 
 
 # ─── FIFO overzicht ───────────────────────────────────────────────────────────

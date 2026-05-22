@@ -80,6 +80,11 @@
             <div class="form-group">
               <label>Nieuwe foto</label>
               <input type="file" name="foto" accept="image/*" class="form-file-input">
+              {% if p.foto_path %}
+              <label class="checkbox-label" style="margin-top:8px">
+                <input type="checkbox" name="verwijder_foto" value="1"> Foto verwijderen
+              </label>
+              {% endif %}
             </div>
           </div>
           <button type="submit" class="btn-primary">Opslaan</button>
