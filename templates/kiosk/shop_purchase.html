@@ -7,25 +7,75 @@
     <h1>🛒 Winkelaankoop — {{ persoon.bijnaam or persoon.voornaam }}</h1>
   </div>
 
-  <form method="POST" action="{{ url_for('kiosk.winkelaankoop_bevestigen') }}" class="shop-form">
+  <form method="POST" action="{{ url_for('kiosk.winkelaankoop_bevestigen') }}" class="inventaris-form">
     <input type="hidden" name="person_id" value="{{ persoon.id }}">
 
-    <h2 style="padding:16px 16px 8px">Welke producten zijn aangekocht?</h2>
-    {% for p in producten %}
-    <div class="shop-row">
-      <div class="shop-naam">{{ p.naam }}</div>
-      <label class="shop-label">Aantal</label>
-      <input type="number" name="qty_{{ p.id }}" value="0" min="0" class="shop-qty" data-numeric-kbd="int">
-      <label class="shop-label">Prijs/stuk (€)</label>
-      <input type="number" name="prijs_{{ p.id }}" value="0.00"
-             min="0" step="0.01" class="shop-prijs" data-numeric-kbd="1">
+    {% for cat in categorieen %}
+    {% set cat_producten = producten | selectattr('categorie_id', 'equalto', cat.id) | list %}
+    {% if cat_producten %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">{{ cat.naam }}</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in cat_producten %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
+            <input type="number" name="qty_{{ p.id }}" value="0"
+                   min="0" class="inv-qty-input" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
+          </div>
+          <div class="inv-prijs-row">
+            <span class="inv-prijs-label">€/stuk</span>
+            <input type="number" name="prijs_{{ p.id }}" value="0.00"
+                   min="0" step="0.01" class="inv-prijs-input" data-numeric-kbd="1">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
     {% endfor %}
 
+    {# Producten zonder categorie #}
+    {% set ongecateg = producten | rejectattr('categorie_id', 'in', categorieen | map(attribute='id') | list) | list %}
+    {% if ongecateg %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">Overige</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in ongecateg %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
+            <input type="number" name="qty_{{ p.id }}" value="0"
+                   min="0" class="inv-qty-input" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
+          </div>
+          <div class="inv-prijs-row">
+            <span class="inv-prijs-label">€/stuk</span>
+            <input type="number" name="prijs_{{ p.id }}" value="0.00"
+                   min="0" step="0.01" class="inv-prijs-input" data-numeric-kbd="1">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="bottom-bar">
-      <button type="submit" class="btn-confirm">Aankoop registreren</button>
-      <a href="{{ url_for('kiosk.home') }}" class="btn-danger">Annuleren</a>
+      <button type="submit" class="btn-confirm">✅ Aankoop registreren</button>
+      <a href="{{ url_for('kiosk.home') }}" class="btn-danger">✕ Annuleren</a>
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function changeInvQty(btn, delta) {
+    const inp = btn.parentElement.querySelector('.inv-qty-input');
+    inp.value = Math.max(0, parseInt(inp.value || 0) + delta);
+  }
+</script>
 {% endblock %}

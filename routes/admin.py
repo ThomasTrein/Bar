@@ -1022,7 +1022,7 @@ def instellingen():
     if request.method == 'POST':
         for k in ['admin_password','deur_timeout_sec','screensaver_timeout_min',
                   'admin_logout_min','video_bewaar_dagen','pi_reboot_tijd',
-                  'product_kolommen', 'persoon_kolommen']:
+                  'product_kolommen', 'persoon_kolommen', 'inv_kolommen']:
             v = request.form.get(k, '').strip()
             if v:
                 set_setting(k, v)

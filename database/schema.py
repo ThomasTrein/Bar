@@ -190,6 +190,12 @@ def init_db():
         )""",
         "ALTER TABLE products ADD COLUMN globally_locked INTEGER DEFAULT 0",
         "ALTER TABLE orders ADD COLUMN deur_niet_geopend INTEGER DEFAULT 0",
+        """CREATE TABLE IF NOT EXISTS fridge_layout (
+            deur INTEGER NOT NULL CHECK(deur IN (1,2,3)),
+            vak INTEGER NOT NULL CHECK(vak IN (1,2,3)),
+            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+            PRIMARY KEY (deur, vak)
+        )""",
     ]
     for sql in migrations:
         try:

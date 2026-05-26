@@ -36,6 +36,7 @@ DEFAULT_SETTINGS = {
     'prijs_tonen':             'false',
     'product_kolommen':        '2',
     'persoon_kolommen':        '4',
+    'inv_kolommen':            '3',
     'video_bewaar_dagen':      '40',
     'pi_reboot_tijd':          '06:30',
 }

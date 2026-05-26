@@ -33,6 +33,11 @@
   </nav>
   {% endif %}
   <main class="admin-main">
+    {# Loading overlay #}
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-spinner"></div>
+    </div>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
         <div class="alert alert-{{ cat }}">{{ msg }}</div>
@@ -43,6 +48,26 @@
   <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
   <script src="{{ url_for('static', filename='js/virtual-keyboard.js') }}"></script>
   <script src="{{ url_for('static', filename='js/numeric-keyboard.js') }}"></script>
+  <script>
+    // Loading overlay
+    (function() {
+      const overlay = document.getElementById('loadingOverlay');
+      function showLoading() { if (overlay) overlay.classList.add('visible'); }
+      document.addEventListener('submit', function(e) {
+        if (!e.target.hasAttribute('data-no-loading')) showLoading();
+      });
+      document.addEventListener('click', function(e) {
+        const a = e.target.closest('a[href]');
+        if (a && !a.hasAttribute('data-no-loading')) {
+          const href = a.getAttribute('href');
+          if (href && !href.startsWith('#') && !href.startsWith('javascript')) showLoading();
+        }
+      });
+      window.addEventListener('pageshow', function(e) {
+        if (e.persisted && overlay) overlay.classList.remove('visible');
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

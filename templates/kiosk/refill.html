@@ -1,16 +1,17 @@
 {% extends "base_kiosk.html" %}
 {% block title %}Frigo aanvullen — KSA Bar{% endblock %}
 {% block content %}
-<div class="page-screen">
+<div class="page-screen refill-screen">
   <div class="page-header">
-    <a href="{{ url_for('kiosk.home') }}" class="btn-back">← Home</a>
+    <a href="{{ url_for('kiosk.home') }}" class="btn-back" data-no-loading>← Home</a>
     <h1>🔄 Frigo aanvullen</h1>
   </div>
 
   {% if not actief_id %}
+  {# STAP 1: naam selecteren #}
   <p class="page-intro">Selecteer jouw naam om het aanvullen te starten.</p>
 
-  <div class="personen-grid"id="personenGrid"
+  <div class="personen-grid" id="personenGrid"
        style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.aanvullen_start') }}">
@@ -31,40 +32,67 @@
   </div>
 
   {% else %}
+  {# STAP 2: drag & drop frigo layout #}
   <div class="mode-banner mode-banner-refill">🔄 Aanvulmodus actief — deuren staan open</div>
-  <p class="page-intro">Vink aan in welke deuren elk product ligt. Een product mag in meerdere deuren tegelijk staan.</p>
 
-  <div class="refill-table-wrap">
-    <table class="refill-table">
-      <thead>
-        <tr>
-          <th>Product</th>
-          <th class="deur-col">Deur 1</th>
-          <th class="deur-col">Deur 2</th>
-          <th class="deur-col">Deur 3</th>
-        </tr>
-      </thead>
-      <tbody>
+  <div class="refill-dd-wrap">
+    {# Productenlijst #}
+    <div class="refill-products-panel" id="productsPanel">
+      <div class="refill-panel-titel">Producten</div>
+      <div class="refill-products-list" id="productsList">
         {% for p in producten %}
-        <tr>
-          <td class="refill-prod-naam">{{ p.naam }}</td>
-          {% for d in [1, 2, 3] %}
-          <td class="deur-col">
-            <input type="checkbox" class="deur-check"
-                   data-product="{{ p.id }}" data-deur="{{ d }}"
-                   {% if p.deuren and d|string in p.deuren.split(',') %}checked{% endif %}>
-          </td>
-          {% endfor %}
-        </tr>
+        <div class="refill-prod-chip"
+             draggable="true"
+             id="prod-{{ p.id }}"
+             data-id="{{ p.id }}"
+             data-naam="{{ p.naam }}">
+          {{ p.naam }}
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </div>
+
+    {# Frigo deuren #}
+    <div class="refill-deuren">
+      {% for d in [1, 2, 3] %}
+      <div class="refill-deur-col">
+        <div class="refill-deur-header">Deur {{ d }}</div>
+        {% for v in [1, 2, 3] %}
+        <div class="refill-slot" id="slot-{{ d }}-{{ v }}"
+             data-deur="{{ d }}" data-vak="{{ v }}">
+          <div class="refill-slot-label">Vak {{ v }}</div>
+          <div class="refill-slot-content" id="slot-content-{{ d }}-{{ v }}">
+            {% if layout.get(d|string + '-' + v|string) %}
+            {% set pid = layout[d|string + '-' + v|string] %}
+            {% if pid in product_names %}
+            <div class="refill-placed-chip"
+                 draggable="true"
+                 data-id="{{ pid }}"
+                 data-naam="{{ product_names[pid] }}"
+                 data-slot="{{ d }}-{{ v }}">
+              {{ product_names[pid] }}
+              <button type="button" class="refill-remove-btn" onclick="removeFromSlot('{{ d }}-{{ v }}')">✕</button>
+            </div>
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
   </div>
 
   <div class="bottom-bar">
-    <button class="btn-primary" onclick="saveDoors()">💾 Opslaan & sluiten</button>
-    <button class="btn-danger" onclick="stopAanvullen()">⛔ Stoppen zonder opslaan</button>
+    <button type="button" class="btn-primary" onclick="saveLayout()">💾 Opslaan & sluiten</button>
+    <button type="button" class="btn-danger" onclick="stopZonderOpslaan()">⛔ Stoppen zonder opslaan</button>
   </div>
+
+  {# Hidden form voor save #}
+  <form id="saveForm" method="POST" action="{{ url_for('kiosk.aanvullen_stop_naam') }}" style="display:none">
+    <input type="hidden" name="door_data" id="doorDataInput">
+    <input type="hidden" name="layout_data" id="layoutDataInput">
+  </form>
   {% endif %}
 </div>
 {% endblock %}
@@ -72,38 +100,185 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
 <script>
-  function buildDoorMap() {
-    const map = {};
-    document.querySelectorAll('.deur-check').forEach(cb => {
-      const pid = cb.dataset.product;
-      const d   = parseInt(cb.dataset.deur);
-      if (!map[pid]) map[pid] = [];
-      if (cb.checked) map[pid].push(d);
-    });
-    return JSON.stringify(map);
+// ── Drag & Drop state ──────────────────────────────────────
+let dragProductId   = null;
+let dragProductNaam = null;
+let dragSourceSlot  = null;  // "deur-vak" string or null (from panel)
+
+// ── Drag handlers ─────────────────────────────────────────
+function setupChipDrag(el) {
+  el.addEventListener('dragstart', function(e) {
+    dragProductId   = el.dataset.id;
+    dragProductNaam = el.dataset.naam;
+    dragSourceSlot  = el.dataset.slot || null;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  el.addEventListener('dragend', function() {
+    el.classList.remove('dragging');
+  });
+}
+
+// Setup existing product chips
+document.querySelectorAll('.refill-prod-chip, .refill-placed-chip').forEach(setupChipDrag);
+
+// Setup drop zones
+document.querySelectorAll('.refill-slot').forEach(function(slot) {
+  slot.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    slot.classList.add('drag-over');
+  });
+  slot.addEventListener('dragleave', function() {
+    slot.classList.remove('drag-over');
+  });
+  slot.addEventListener('drop', function(e) {
+    e.preventDefault();
+    slot.classList.remove('drag-over');
+    const deur = slot.dataset.deur;
+    const vak  = slot.dataset.vak;
+    const key  = deur + '-' + vak;
+    placeProduct(key, dragProductId, dragProductNaam, dragSourceSlot);
+  });
+});
+
+// Products panel drop (remove from slot)
+document.getElementById('productsPanel').addEventListener('dragover', function(e) {
+  if (dragSourceSlot) { e.preventDefault(); this.classList.add('drag-over-panel'); }
+});
+document.getElementById('productsPanel').addEventListener('dragleave', function() {
+  this.classList.remove('drag-over-panel');
+});
+document.getElementById('productsPanel').addEventListener('drop', function(e) {
+  e.preventDefault();
+  this.classList.remove('drag-over-panel');
+  if (dragSourceSlot) removeFromSlot(dragSourceSlot);
+});
+
+// ── Touch support ──────────────────────────────────────────
+let touchDragEl   = null;
+let touchClone    = null;
+let touchProdId   = null;
+let touchProdNaam = null;
+let touchSrcSlot  = null;
+
+function setupTouchChip(el) {
+  el.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    touchProdId   = el.dataset.id;
+    touchProdNaam = el.dataset.naam;
+    touchSrcSlot  = el.dataset.slot || null;
+    touchDragEl   = el;
+    // Create visual clone
+    touchClone = el.cloneNode(true);
+    touchClone.style.cssText = 'position:fixed;opacity:.85;pointer-events:none;z-index:9999;' +
+      'width:' + el.offsetWidth + 'px;padding:8px 12px;background:var(--accent);color:#000;' +
+      'border-radius:8px;font-weight:700;font-size:13px;transform:scale(1.05);';
+    const t = e.touches[0];
+    touchClone.style.left = (t.clientX - el.offsetWidth/2) + 'px';
+    touchClone.style.top  = (t.clientY - 20) + 'px';
+    document.body.appendChild(touchClone);
+  }, { passive: false });
+
+  el.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (!touchClone) return;
+    const t = e.touches[0];
+    touchClone.style.left = (t.clientX - parseInt(touchClone.style.width)/2) + 'px';
+    touchClone.style.top  = (t.clientY - 20) + 'px';
+    // Highlight slot under finger
+    document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
+    const under = document.elementFromPoint(t.clientX, t.clientY);
+    const slot = under && under.closest('.refill-slot');
+    if (slot) slot.classList.add('drag-over');
+  }, { passive: false });
+
+  el.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
+    if (!e.changedTouches[0]) return;
+    const t = e.changedTouches[0];
+    const under = document.elementFromPoint(t.clientX, t.clientY);
+    const slot = under && under.closest('.refill-slot');
+    if (slot) {
+      const key = slot.dataset.deur + '-' + slot.dataset.vak;
+      placeProduct(key, touchProdId, touchProdNaam, touchSrcSlot);
+    } else {
+      // Dropped over panel?
+      const panel = under && under.closest('#productsPanel');
+      if (panel && touchSrcSlot) removeFromSlot(touchSrcSlot);
+    }
+    touchDragEl = null; touchProdId = null; touchProdNaam = null; touchSrcSlot = null;
+  }, { passive: false });
+}
+
+document.querySelectorAll('.refill-prod-chip, .refill-placed-chip').forEach(setupTouchChip);
+
+// ── Core placement logic ───────────────────────────────────
+function placeProduct(slotKey, prodId, prodNaam, srcSlot) {
+  if (!prodId) return;
+
+  // Clear source slot if dragged from a slot
+  if (srcSlot && srcSlot !== slotKey) {
+    const [sd, sv] = srcSlot.split('-');
+    document.getElementById('slot-content-' + sd + '-' + sv).innerHTML = '';
   }
 
-  function submitStop(doorData) {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/aanvullen/stop-naam';
-    const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'door_data';
-    inp.value = doorData;
-    form.appendChild(inp);
-    document.body.appendChild(form);
-    form.submit();
-  }
+  // If the target slot already had a product, send it back conceptually
+  const [d, v] = slotKey.split('-');
+  const contentEl = document.getElementById('slot-content-' + d + '-' + v);
 
-  function saveDoors() {
-    submitStop(buildDoorMap());
-  }
+  // Build placed chip
+  contentEl.innerHTML = '';
+  const chip = document.createElement('div');
+  chip.className = 'refill-placed-chip';
+  chip.draggable = true;
+  chip.dataset.id   = prodId;
+  chip.dataset.naam = prodNaam;
+  chip.dataset.slot = slotKey;
+  chip.innerHTML = prodNaam +
+    ' <button type="button" class="refill-remove-btn" onclick="removeFromSlot(\'' + slotKey + '\')">✕</button>';
+  contentEl.appendChild(chip);
+  setupChipDrag(chip);
+  setupTouchChip(chip);
+}
 
-  function stopAanvullen() {
-    window.customConfirm('Stoppen zonder wijzigingen op te slaan?', function() {
-      submitStop('{}');
-    });
-  }
+function removeFromSlot(slotKey) {
+  const [d, v] = slotKey.split('-');
+  document.getElementById('slot-content-' + d + '-' + v).innerHTML = '';
+}
+
+// ── Serialize & save ──────────────────────────────────────
+function buildLayoutData() {
+  const layout  = {};  // "d-v": product_id
+  const doorMap = {};  // product_id: [deuren]
+  document.querySelectorAll('.refill-slot').forEach(function(slot) {
+    const d = slot.dataset.deur;
+    const v = slot.dataset.vak;
+    const chip = slot.querySelector('.refill-placed-chip');
+    if (chip) {
+      const pid = chip.dataset.id;
+      layout[d + '-' + v] = parseInt(pid);
+      if (!doorMap[pid]) doorMap[pid] = [];
+      if (!doorMap[pid].includes(parseInt(d))) doorMap[pid].push(parseInt(d));
+    }
+  });
+  return { layout, doorMap };
+}
+
+function saveLayout() {
+  const { layout, doorMap } = buildLayoutData();
+  document.getElementById('layoutDataInput').value = JSON.stringify(layout);
+  document.getElementById('doorDataInput').value   = JSON.stringify(doorMap);
+  document.getElementById('saveForm').submit();
+}
+
+function stopZonderOpslaan() {
+  window.customConfirm && window.customConfirm('Stoppen zonder wijzigingen op te slaan?', function() {
+    document.getElementById('layoutDataInput').value = '{}';
+    document.getElementById('doorDataInput').value   = '{}';
+    document.getElementById('saveForm').submit();
+  });
+}
 </script>
 {% endblock %}

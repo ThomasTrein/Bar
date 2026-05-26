@@ -5,63 +5,64 @@
 <div class="admin-page-header">
   <h1>Bestelling niet gevonden</h1>
   <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Terug</a>
-  <p><strong>Status:</strong>
-    {% if order.deur_niet_geopend %}
-      <span class="badge-danger">Deuren nooit geopend (niet aangerekend)</span>
-    {% elif order.geannuleerd %}
-      Geannuleerd
-    {% else %}
-      Actief
-    {% endif %}
-  </p>
+</div>
 <p>Deze bestelling bestaat niet.</p>
+
 {% else %}
 <div class="admin-page-header">
   <h1>Bestelling #{{ order.id }}</h1>
   <a href="{{ url_for('admin.bestellingen') }}" class="btn-secondary">Terug</a>
 </div>
 
+<p><strong>Status:</strong>
+  {% if order.deur_niet_geopend %}
+    <span class="badge-danger">Deuren nooit geopend (niet aangerekend)</span>
+  {% elif order.geannuleerd %}
+    Geannuleerd
+  {% else %}
+    Actief
+  {% endif %}
+</p>
+
+{% if order.video_path %}
+<p><strong>Video:</strong>
+  <a href="{{ url_for('serve_video', pad=order.video_path) }}" target="_blank">Bekijken</a>
+</p>
+{% endif %}
+
 {% if items %}
 <h2>{% if not order.geannuleerd %}Items bewerken{% else %}Bestelde producten{% endif %}</h2>
 {% if not order.geannuleerd %}
 <form method="POST" action="{{ url_for('admin.bestelling_bewerken', oid=order.id) }}">
 {% endif %}
-  <p><strong>Status:</strong> {% if order.geannuleerd %}Geannuleerd{% else %}Actief{% endif %}</p>
-  {% if order.video_path %}
-  <p><strong>Video:</strong>
-    <a href="{{ url_for('serve_video', pad=order.video_path) }}" target="_blank">Bekijken</a>
-  </p>
-        <td>{{ item.bijnaam or item.voornaam or 'Onbekend' }}</td>
-        <td>{{ item.product_naam or 'Verwijderd product' }}</td>
-        {% if not order.geannuleerd %}
-
-{% if not order.geannuleerd %}
-<h2>Items bewerken</h2>
-<form method="POST" action="{{ url_for('admin.bestelling_bewerken', oid=order.id) }}">
-        {% else %}
-        <td>{{ item.hoeveelheid }}</td>
-        {% endif %}
   <table class="admin-table">
-    <thead><tr><th>Persoon</th><th>Product</th><th>Hoeveelheid</th><th>Prijs/stuk</th></tr></thead>
+    <thead>
+      <tr>
+        <th>Persoon</th>
+        <th>Product</th>
+        <th>Hoeveelheid</th>
+        <th>Prijs/stuk</th>
+      </tr>
+    </thead>
     <tbody>
       {% for item in items %}
       <tr>
-  {% if not order.geannuleerd %}
-        <td>{{ item.bijnaam or item.voornaam }}</td>
-        <td>{{ item.product_naam }}</td>
-  {% endif %}
-{% else %}
-<p>Geen items gevonden voor deze bestelling.</p>
-{% endif %}
+        <td>{{ item.bijnaam or item.voornaam or 'Onbekend' }}</td>
+        <td>{{ item.product_naam or 'Verwijderd product' }}</td>
         <td>
-{% if not order.geannuleerd %}
+          {% if not order.geannuleerd %}
           <input type="number" name="qty_{{ item.id }}" value="{{ item.hoeveelheid }}"
                  min="0" class="form-input short-input">
+          {% else %}
+          {{ item.hoeveelheid }}
+          {% endif %}
         </td>
         <td>€{{ "%.2f"|format(item.verkoop_prijs_snapshot) }}</td>
       </tr>
       {% endfor %}
+    </tbody>
   </table>
+  {% if not order.geannuleerd %}
   <button type="submit" class="btn-primary">Opslaan</button>
 </form>
 
@@ -70,6 +71,9 @@
       data-confirm="Bestelling annuleren en stock herstellen?">
   <button class="btn-danger">Bestelling annuleren</button>
 </form>
+  {% endif %}
+{% else %}
+<p>Geen items gevonden voor deze bestelling.</p>
 {% endif %}
 {% endif %}
 {% endblock %}

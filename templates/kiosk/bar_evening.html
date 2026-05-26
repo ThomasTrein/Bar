@@ -12,7 +12,7 @@
   {% if not session_person_id %}
   <p class="page-intro">Selecteer jouw naam om baravond te starten.</p>
 
-  <div class="personen-grid"id="personenGrid"
+  <div class="personen-grid" id="personenGrid"
        style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.baravond') }}">
@@ -35,24 +35,63 @@
 
   {% else %}
   {# STAP 2: inventaris invullen #}
-  <p class="page-intro">Vul de huidige stock in (inclusief inactieve producten).</p>
+  <p class="page-intro">Vul de huidige stock in en geef een naam voor de baravond.</p>
   <form method="POST" action="{{ url_for('kiosk.baravond_start') }}" class="inventaris-form">
     <input type="hidden" name="person_id" value="{{ session_person_id }}">
-    <div class="inv-row">
-      <label class="inv-label">📝 Naam baravond</label>
+    <div class="inv-naam-row">
+      <label class="inv-naam-label">📝 Naam baravond</label>
       <input type="text" name="naam" placeholder="bijv. Vrijdagavond KSA"
-             class="inv-input" style="flex:2">
+             class="inv-naam-input">
     </div>
-    {% for p in producten %}
-    <div class="inv-row">
-      <label class="inv-label">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</label>
-      <input type="number" name="product_{{ p.id }}" value="{{ p.stock if p.stock > 0 else 0 }}"
-             min="0" class="inv-input" data-numeric-kbd="int">
+
+    {% for cat in categorieen %}
+    {% set cat_producten = producten | selectattr('categorie_id', 'equalto', cat.id) | list %}
+    {% if cat_producten %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">{{ cat.naam }}</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in cat_producten %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-naam">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</div>
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
+            <input type="number" name="product_{{ p.id }}"
+                   value="{{ p.stock if p.stock > 0 else 0 }}"
+                   min="0" class="inv-qty-input" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
     {% endfor %}
-    <div class="form-actions" style="padding:16px">
+
+    {# Producten zonder categorie #}
+    {% set ongecateg = producten | rejectattr('categorie_id', 'in', categorieen | map(attribute='id') | list) | list %}
+    {% if ongecateg %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">Overige</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in ongecateg %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
+            <input type="number" name="product_{{ p.id }}"
+                   value="{{ p.stock if p.stock > 0 else 0 }}"
+                   min="0" class="inv-qty-input" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="bottom-bar">
       <button type="submit" class="btn-confirm">🎉 Baravond starten</button>
-      <form method="POST" action="{{ url_for('kiosk.baravond_reset_naam') }}" style="display:inline">
+      <form method="POST" action="{{ url_for('kiosk.baravond_reset_naam') }}" style="display:inline" data-no-loading>
         <button type="submit" class="btn-secondary">← Terug</button>
       </form>
     </div>
@@ -66,7 +105,7 @@
   {% if not stop_person_id %}
   <p class="page-intro">Selecteer wie de baravond stopt.</p>
 
-  <div class="personen-grid"id="personenGrid"
+  <div class="personen-grid" id="personenGrid"
        style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.baravond') }}">
@@ -92,16 +131,33 @@
   <p class="page-intro">Vul de eind-stock in om de baravond te beëindigen.</p>
   <form method="POST" action="{{ url_for('kiosk.baravond_stop') }}" class="inventaris-form">
     <input type="hidden" name="bar_id" value="{{ actief_id }}">
-    {% for p in producten %}
-    <div class="inv-row">
-      <label class="inv-label">{{ p.naam }}</label>
-      <input type="number" name="product_{{ p.id }}" value="{{ p.stock if p.stock > 0 else 0 }}"
-             min="0" class="inv-input" data-numeric-kbd="int">
+
+    {% for cat in categorieen %}
+    {% set cat_producten = producten | selectattr('categorie_id', 'equalto', cat.id) | list %}
+    {% if cat_producten %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">{{ cat.naam }}</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in cat_producten %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
+            <input type="number" name="product_{{ p.id }}"
+                   value="{{ p.stock if p.stock > 0 else 0 }}"
+                   min="0" class="inv-qty-input" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
     {% endfor %}
-    <div class="form-actions" style="padding:16px">
+
+    <div class="bottom-bar">
       <button type="submit" class="btn-danger">⛔ Baravond beëindigen</button>
-      <form method="POST" action="{{ url_for('kiosk.baravond_reset_stop_naam') }}" style="display:inline">
+      <form method="POST" action="{{ url_for('kiosk.baravond_reset_stop_naam') }}" style="display:inline" data-no-loading>
         <button type="submit" class="btn-secondary">← Ander persoon</button>
       </form>
     </div>
@@ -113,4 +169,10 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
+<script>
+  function changeInvQty(btn, delta) {
+    const inp = btn.parentElement.querySelector('.inv-qty-input');
+    inp.value = Math.max(0, parseInt(inp.value || 0) + delta);
+  }
+</script>
 {% endblock %}

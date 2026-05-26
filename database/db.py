@@ -2,8 +2,15 @@
 import sqlite3
 import os
 import sys
+import time
+import threading
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config import DATABASE_PATH
+
+# ── Simple in-memory TTL cache ───────────────────────
+_cache_lock = threading.Lock()
+_settings_cache: dict = {}          # sleutel → (waarde, expires_at)
+SETTINGS_TTL = 30                   # seconds
 
 
 def get_db():
@@ -39,8 +46,16 @@ def executemany(sql, params_list):
 
 
 def get_setting(sleutel, default=None):
+    now = time.monotonic()
+    with _cache_lock:
+        entry = _settings_cache.get(sleutel)
+        if entry and now < entry[1]:
+            return entry[0]
     row = query("SELECT waarde FROM settings WHERE sleutel = ?", (sleutel,), one=True)
-    return row['waarde'] if row else default
+    value = row['waarde'] if row else default
+    with _cache_lock:
+        _settings_cache[sleutel] = (value, now + SETTINGS_TTL)
+    return value
 
 
 def set_setting(sleutel, waarde):
@@ -48,6 +63,9 @@ def set_setting(sleutel, waarde):
         "INSERT OR REPLACE INTO settings (sleutel, waarde) VALUES (?, ?)",
         (sleutel, str(waarde))
     )
+    # Invalidate cache for this key
+    with _cache_lock:
+        _settings_cache.pop(sleutel, None)
 
 
 def add_log(type_, beschrijving, person_id=None, referentie_id=None, referentie_type=None):

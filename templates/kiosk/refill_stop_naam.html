@@ -13,6 +13,7 @@
     {% for p in personen %}
     <form method="POST" action="{{ url_for('kiosk.aanvullen_stop') }}">
       <input type="hidden" name="door_data" value="{{ door_data }}">
+      <input type="hidden" name="layout_data" value="{{ layout_data }}">
       <input type="hidden" name="person_id" value="{{ p.id }}">
       <button type="submit" class="persoon-kaart"
               data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
