@@ -33,7 +33,7 @@
   <tbody>
     {% for log in logs %}
     <tr>
-      <td>{{ log.tijdstip[:16] if log.tijdstip else '' }}</td>
+      <td>{{ log.tijdstip | localtime }}</td>
       <td><span class="badge-secondary">{{ log.type }}</span></td>
       <td>{{ log.bijnaam or log.voornaam or '—' }}</td>
       <td>{{ log.beschrijving }}</td>

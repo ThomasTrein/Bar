@@ -38,7 +38,7 @@
     <tr class="{% if b.hoeveelheid_resterend == 0 %}row-inactive{% endif %}" id="batch-row-{{ b.id }}">
       <td>{{ b.id }}</td>
       <td>{{ b.product_naam or '—' }}</td>
-      <td>{{ b.datum[:16] if b.datum else '—' }}</td>
+      <td>{{ b.datum | localtime if b.datum else '—' }}</td>
       <td>{{ b.hoeveelheid_origineel }}</td>
       <td>{{ b.hoeveelheid_resterend }}</td>
       <td>{{ "%.4f"|format(b.aankoop_prijs) }}</td>

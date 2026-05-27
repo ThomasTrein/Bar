@@ -74,7 +74,7 @@
   <tbody>
     {% for b in bestellingen %}
     <tr>
-      <td>{{ b.tijdstip[:16] if b.tijdstip else '' }}</td>
+      <td>{{ b.tijdstip | localtime }}</td>
       <td>{% if b.type == 'bond' %}<span class="badge-special">Bond</span>{% else %}Normaal{% endif %}</td>
       <td>{{ b.items or 0 }}</td>
       <td>
@@ -109,7 +109,7 @@
   <tbody>
     {% for b in betalingen %}
     <tr>
-      <td>{{ b.tijdstip[:16] }}</td>
+      <td>{{ b.tijdstip | localtime }}</td>
       <td class="{% if b.bedrag >= 0 %}text-success{% else %}text-danger{% endif %}">
         €{{ "%.2f"|format(b.bedrag) }}
       </td>

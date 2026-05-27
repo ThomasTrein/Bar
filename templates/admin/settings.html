@@ -9,93 +9,122 @@
 {% if succes == 'leeggemaakt' %}<div class="alert alert-success">Database succesvol leeggemaakt. Een automatische backup werd aangemaakt.</div>{% endif %}
 {% if fout == 'leegmaken' %}<div class="alert alert-danger">Typ exact <strong>LEEGMAKEN</strong> om te bevestigen.</div>{% endif %}
 
-<form method="POST" enctype="multipart/form-data" class="settings-form">
-  <div class="form-group">
-    <label>Nieuw admin wachtwoord</label>
-    <input type="password" name="admin_password" class="form-input" placeholder="(leeg = niet wijzigen)">
-  </div>
-  <div class="form-group">
-    <label>Deur time-out (seconden)</label>
-    <input type="number" name="deur_timeout_sec" value="{{ settings.get('deur_timeout_sec', 120) }}"
-           min="10" max="600" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Screensaver time-out (minuten)</label>
-    <input type="number" name="screensaver_timeout_min" value="{{ settings.get('screensaver_timeout_min', 2) }}"
-           min="1" max="60" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Admin auto-logout (minuten)</label>
-    <input type="number" name="admin_logout_min" value="{{ settings.get('admin_logout_min', 10) }}"
-           min="1" max="120" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Video bewaarperiode (dagen)</label>
-    <input type="number" name="video_bewaar_dagen" value="{{ settings.get('video_bewaar_dagen', 40) }}"
-           min="1" max="365" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Prijs tonen op kiosk</label>
-    <select name="prijs_tonen" class="form-input">
-      <option value="1" {% if settings.get('prijs_tonen') == 'true' %}selected{% endif %}>Ja</option>
-      <option value="0" {% if settings.get('prijs_tonen') != 'true' %}selected{% endif %}>Nee</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label>Aantal dranken naast elkaar (bestellingsscherm)</label>
-    <input type="number" name="product_kolommen"
-           value="{{ settings.get('product_kolommen', '2') }}"
-           min="1" max="6" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Aantal personen naast elkaar (naamselectie)</label>
-    <input type="number" name="persoon_kolommen"
-           value="{{ settings.get('persoon_kolommen', '4') }}"
-           min="1" max="8" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Aantal kolommen inventarisraster (baravond &amp; winkelaankoop)</label>
-    <input type="number" name="inv_kolommen"
-           value="{{ settings.get('inv_kolommen', '3') }}"
-           min="1" max="6" class="form-input" data-numeric-kbd="int">
-  </div>
-  <div class="form-group">
-    <label>Screensaver achtergrondafbeelding</label>
-    {% if settings.get('screensaver_foto') %}
-    <div style="margin-bottom:10px">
-      <img src="{{ url_for('serve_upload', pad=settings.get('screensaver_foto')) }}"
-           alt="Huidige screensaver" style="max-height:120px;border-radius:6px;border:1px solid var(--border)">
+<form method="POST" enctype="multipart/form-data">
+<div class="dashboard-grid" style="margin-bottom:20px">
+
+  {# ── Beveiliging ─────────────────────────────────────── #}
+  <div class="dash-card">
+    <h2>🔐 Beveiliging</h2>
+    <div class="form-group">
+      <label>Nieuw admin wachtwoord</label>
+      <input type="password" name="admin_password" class="form-input" placeholder="(leeg = niet wijzigen)">
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:8px;font-size:14px">
-      <input type="checkbox" name="screensaver_foto_verwijderen" value="1"> Huidige afbeelding verwijderen
-    </label>
-    {% endif %}
-    <input type="file" name="screensaver_foto" accept="image/*" class="form-file-input">
-    <div style="font-size:13px;color:var(--text-dim);margin-top:6px">Ondersteunde formaten: JPG, PNG, WebP, GIF</div>
+    <div class="form-group">
+      <label>Admin auto-logout (minuten)</label>
+      <input type="number" name="admin_logout_min"
+             value="{{ settings.get('admin_logout_min', 10) }}"
+             min="1" max="120" class="form-input" data-numeric-kbd="int">
+    </div>
   </div>
-  <button type="submit" class="btn-primary">Opslaan</button>
+
+  {# ── Tijdslimieten ───────────────────────────────────── #}
+  <div class="dash-card">
+    <h2>⏱️ Tijdslimieten</h2>
+    <div class="form-group">
+      <label>Deur time-out (seconden)</label>
+      <input type="number" name="deur_timeout_sec"
+             value="{{ settings.get('deur_timeout_sec', 120) }}"
+             min="10" max="600" class="form-input" data-numeric-kbd="int">
+    </div>
+    <div class="form-group">
+      <label>Screensaver time-out (minuten)</label>
+      <input type="number" name="screensaver_timeout_min"
+             value="{{ settings.get('screensaver_timeout_min', 2) }}"
+             min="1" max="60" class="form-input" data-numeric-kbd="int">
+    </div>
+    <div class="form-group">
+      <label>Video bewaarperiode (dagen)</label>
+      <input type="number" name="video_bewaar_dagen"
+             value="{{ settings.get('video_bewaar_dagen', 40) }}"
+             min="1" max="365" class="form-input" data-numeric-kbd="int">
+    </div>
+  </div>
+
+  {# ── Weergave ────────────────────────────────────────── #}
+  <div class="dash-card">
+    <h2>🖥️ Weergave</h2>
+    <div class="form-group">
+      <label>Prijs tonen op kiosk</label>
+      <select name="prijs_tonen" class="form-input">
+        <option value="1" {% if settings.get('prijs_tonen') == 'true' %}selected{% endif %}>Ja</option>
+        <option value="0" {% if settings.get('prijs_tonen') != 'true' %}selected{% endif %}>Nee</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Dranken naast elkaar (bestellingsscherm)</label>
+      <input type="number" name="product_kolommen"
+             value="{{ settings.get('product_kolommen', '2') }}"
+             min="1" max="6" class="form-input" data-numeric-kbd="int">
+    </div>
+    <div class="form-group">
+      <label>Personen naast elkaar (naamselectie)</label>
+      <input type="number" name="persoon_kolommen"
+             value="{{ settings.get('persoon_kolommen', '4') }}"
+             min="1" max="8" class="form-input" data-numeric-kbd="int">
+    </div>
+    <div class="form-group">
+      <label>Kolommen inventarisraster (baravond &amp; winkelaankoop)</label>
+      <input type="number" name="inv_kolommen"
+             value="{{ settings.get('inv_kolommen', '3') }}"
+             min="1" max="6" class="form-input" data-numeric-kbd="int">
+    </div>
+    <div class="form-group">
+      <label>Screensaver achtergrondafbeelding</label>
+      {% if settings.get('screensaver_foto') %}
+      <div style="margin-bottom:10px">
+        <img src="{{ url_for('serve_upload', pad=settings.get('screensaver_foto')) }}"
+             alt="Huidige screensaver" style="max-height:110px;border-radius:6px;border:1px solid var(--border)">
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-bottom:8px;font-size:14px">
+        <input type="checkbox" name="screensaver_foto_verwijderen" value="1"> Huidige afbeelding verwijderen
+      </label>
+      {% endif %}
+      <input type="file" name="screensaver_foto" accept="image/*" class="form-file-input">
+      <div class="form-hint">Ondersteunde formaten: JPG, PNG, WebP, GIF</div>
+    </div>
+  </div>
+
+</div>{# /dashboard-grid #}
+
+<button type="submit" class="btn-primary" style="margin-bottom:32px">💾 Opslaan</button>
 </form>
 
-<hr>
-<div class="form-group">
-  <a href="{{ url_for('admin.backup_download') }}" class="btn-secondary">Database backup downloaden</a>
+{# ── Database ────────────────────────────────────────────── #}
+<div class="dash-card" style="margin-bottom:20px">
+  <h2>🗄️ Database</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+
+    <div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Download een kopie van de volledige database.</p>
+      <a href="{{ url_for('admin.backup_download') }}" class="btn-secondary">⬇️ Backup downloaden</a>
+    </div>
+
+    <div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
+        Upload een .db bestand om de database te vervangen. De huidige data wordt eerst automatisch gebackupt.
+      </p>
+      <form method="POST" action="{{ url_for('admin.backup_upload') }}"
+            enctype="multipart/form-data"
+            data-confirm="Database vervangen vanuit backup? Huidige data wordt overschreven (backup wordt eerst aangemaakt)."
+            style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="file" name="backup_bestand" accept=".db" class="form-file-input" required>
+        <button type="submit" class="btn-primary">Herstellen</button>
+      </form>
+    </div>
+
+  </div>
 </div>
 
-<div class="form-group" style="margin-top:12px">
-  <h3 style="margin-bottom:8px">Database herstellen vanuit backup</h3>
-  <p style="color:var(--text-dim);font-size:0.9em;margin-bottom:10px">
-    Upload een .db bestand om de database te vervangen. De huidige data wordt eerst automatisch gebackupt.
-  </p>
-  <form method="POST" action="{{ url_for('admin.backup_upload') }}"
-        enctype="multipart/form-data"
-        data-confirm="Database vervangen vanuit backup? Huidige data wordt overschreven (backup wordt eerst aangemaakt)."
-        style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <input type="file" name="backup_bestand" accept=".db" class="form-file-input" required>
-    <button type="submit" class="btn-primary">Herstellen</button>
-  </form>
-</div>
-
-<hr>
 <div class="danger-zone">
   <h2 class="danger-zone-titel">⚠️ Gevarenzone</h2>
   <p class="danger-zone-desc">
@@ -137,10 +166,8 @@
 
 {% block scripts %}
 <script>
-  // Sluit modal bij klik buiten de box, maar NIET als virtual keyboard actief is
   document.getElementById('leegmakenModal').addEventListener('click', function(e) {
     if (e.target === this) {
-      // Sluit modal alleen als het virtual keyboard niet actief is
       var vkbd = document.getElementById('vkbd');
       if (vkbd && vkbd.classList.contains('vkbd-on')) return;
       this.style.display = 'none';

@@ -7,7 +7,7 @@
 </div>
 
 <div class="detail-info">
-  <p><strong>Tijdstip:</strong> {{ aankoop.tijdstip }}</p>
+  <p><strong>Tijdstip:</strong> {{ aankoop.tijdstip | localtime }}</p>
   <p><strong>Persoon:</strong> {{ aankoop.bijnaam or aankoop.voornaam or '—' }}</p>
 </div>
 

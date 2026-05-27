@@ -34,7 +34,7 @@
   <tbody>
     {% for a in aankopen %}
     <tr>
-      <td>{{ a.tijdstip[:16] if a.tijdstip else '' }}</td>
+      <td>{{ a.tijdstip | localtime }}</td>
       <td>{{ a.bijnaam or a.voornaam or '—' }}</td>
       <td>{{ a.producten or 0 }}</td>
       <td>{{ a.items or 0 }}</td>

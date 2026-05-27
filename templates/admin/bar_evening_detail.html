@@ -21,8 +21,8 @@
   <div class="dash-card">
     <h2>Info</h2>
     <table class="admin-table">
-      <tr><td>Start</td><td>{{ be.start_tijd[:16] if be.start_tijd else '—' }}</td></tr>
-      <tr><td>Einde</td><td>{{ be.eind_tijd[:16] if be.eind_tijd else '—' }}</td></tr>
+      <tr><td>Start</td><td>{{ be.start_tijd | localtime if be.start_tijd else '—' }}</td></tr>
+      <tr><td>Einde</td><td>{{ be.eind_tijd | localtime if be.eind_tijd else '—' }}</td></tr>
       <tr><td>Gestart door</td><td>{{ (activator.bijnaam or activator.voornaam) if activator else '?' }}</td></tr>
       <tr><td>Gestopt door</td><td>{{ (deactivator.bijnaam or deactivator.voornaam) if deactivator else '—' }}</td></tr>
     </table>

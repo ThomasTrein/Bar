@@ -67,12 +67,11 @@ def restore_stock(product_id: int, hoeveelheid: int, aankoop_kost: float = 0.0):
     Herstel stock bij annulering of verwijdering van bestelling.
     Geeft de hoeveelheid terug aan de meest recent geconsumeerde batch(es),
     zodat de FIFO-volgorde correct blijft.
+
+    Opmerking: als er niets geconsumeerd was (bv. stock was al 0 en geen batches),
+    wordt de stock NIET verhoogd om phantom stock te vermijden.
     """
     conn = get_db()
-    conn.execute(
-        "UPDATE products SET stock = stock + ? WHERE id = ?",
-        (hoeveelheid, product_id)
-    )
 
     # Zoek batches die gedeeltelijk of volledig verbruikt zijn, nieuwste eerst
     batches = conn.execute(
@@ -95,17 +94,29 @@ def restore_stock(product_id: int, hoeveelheid: int, aankoop_kost: float = 0.0):
         )
         resterend -= te_herstellen
 
-    # Als er nog hoeveelheid over is (geen batches om naar terug te zetten), maak een nieuwe batch
-    if resterend > 0:
-        prijs_per_stuk = (aankoop_kost / hoeveelheid) if (aankoop_kost > 0 and hoeveelheid > 0) else 0.0
-        conn.execute(
-            """INSERT INTO fifo_batches
-               (product_id, aankoop_prijs, hoeveelheid_origineel, hoeveelheid_resterend,
-                datum)
-               VALUES (?, ?, ?, ?, datetime('now', '-1 year'))""",
-            (product_id, prijs_per_stuk, resterend, resterend)
-        )
+    hersteld_van_batches = hoeveelheid - resterend
 
+    if resterend > 0:
+        if hersteld_van_batches > 0:
+            # Anomalie: meer te herstellen dan beschikbaar in batches — maak ghost batch voor restant
+            prijs_per_stuk = (aankoop_kost / hoeveelheid) if (aankoop_kost > 0 and hoeveelheid > 0) else 0.0
+            conn.execute(
+                """INSERT INTO fifo_batches
+                   (product_id, aankoop_prijs, hoeveelheid_origineel, hoeveelheid_resterend, datum)
+                   VALUES (?, ?, ?, ?, datetime('now', 'localtime', '-1 year'))""",
+                (product_id, prijs_per_stuk, resterend, resterend)
+            )
+        else:
+            # Niets geconsumeerd uit batches → consume_stock heeft niets afgetrokken (stock was 0)
+            # Geen stock-update uitvoeren om phantom stock te vermijden
+            conn.commit()
+            conn.close()
+            return
+
+    conn.execute(
+        "UPDATE products SET stock = stock + ? WHERE id = ?",
+        (hoeveelheid, product_id)
+    )
     conn.commit()
     conn.close()
 
@@ -149,7 +160,7 @@ def return_to_oldest_fifo(product_id: int, hoeveelheid: int):
         conn.execute(
             """INSERT INTO fifo_batches
                (product_id, aankoop_prijs, hoeveelheid_origineel, hoeveelheid_resterend, datum)
-               VALUES (?, 0, ?, ?, datetime('now', '-2 years'))""",
+               VALUES (?, 0, ?, ?, datetime('now', 'localtime', '-2 years'))""",
             (product_id, resterend, resterend)
         )
 

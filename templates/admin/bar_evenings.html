@@ -21,8 +21,8 @@
     {% for be in baravonden %}
     <tr>
       <td><strong>{{ be.naam or '—' }}</strong></td>
-      <td>{{ be.start_tijd[:16] if be.start_tijd else '—' }}</td>
-      <td>{{ be.eind_tijd[:16] if be.eind_tijd else '—' }}</td>
+      <td>{{ be.start_tijd | localtime if be.start_tijd else '—' }}</td>
+      <td>{{ be.eind_tijd | localtime if be.eind_tijd else '—' }}</td>
       <td>{{ be.activator_bijnaam or be.activator_voornaam or '?' }}</td>
       <td>{{ be.deactivator_bijnaam or be.deactivator_voornaam or '—' }}</td>
       <td>

@@ -4,7 +4,14 @@ Start met: python app.py
 """
 import os
 import secrets
+from datetime import datetime, timezone
 from flask import Flask, send_from_directory
+
+try:
+    from zoneinfo import ZoneInfo
+    _BRUSSELS = ZoneInfo('Europe/Brussels')
+except ImportError:
+    _BRUSSELS = None
 
 from config import BASE_DIR, VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR
 from database.schema import init_db
@@ -36,6 +43,27 @@ def create_app():
     def inject_globals():
         from database.db import get_setting
         return {'screensaver_foto': get_setting('screensaver_foto', '')}
+
+    # Jinja2 filter: converteer UTC datetime string naar Belgische lokale tijd
+    @app.template_filter('localtime')
+    def localtime_filter(value):
+        if not value:
+            return ''
+        try:
+            if isinstance(value, str):
+                dt = datetime.fromisoformat(value)
+            else:
+                dt = value
+            if _BRUSSELS:
+                dt_utc = dt.replace(tzinfo=timezone.utc)
+                dt_local = dt_utc.astimezone(_BRUSSELS)
+            else:
+                # Fallback: voeg 2 uur toe (geen DST-bewustzijn)
+                from datetime import timedelta
+                dt_local = dt + timedelta(hours=2)
+            return dt_local.strftime('%d/%m/%Y %H:%M')
+        except (ValueError, TypeError):
+            return str(value)[:16] if value else ''
 
     # Blueprints
     from routes.kiosk import kiosk_bp
