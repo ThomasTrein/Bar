@@ -10,7 +10,7 @@ from flask import Flask, send_from_directory
 try:
     from zoneinfo import ZoneInfo
     _BRUSSELS = ZoneInfo('Europe/Brussels')
-except ImportError:
+except (ImportError, KeyError):
     _BRUSSELS = None
 
 from config import BASE_DIR, VIDEOS_DIR, BACKUPS_DIR, UPLOADS_DIR, UPLOADS_PERSONS_DIR, UPLOADS_PRODUCTS_DIR, UPLOADS_SCREENSAVER_DIR

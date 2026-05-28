@@ -317,12 +317,20 @@ Je ziet nu `(venv)` voor je terminalprompt — dit betekent dat de venv actief i
 # Zorg dat pip up-to-date is
 pip install --upgrade pip
 
-# Installeer de basis-pakketten
-pip install flask>=3.0.0 Pillow>=10.0.0 openpyxl>=3.1.0 reportlab>=4.0.0
+# Installeer alle benodigde pakketten via requirements.txt
+pip install -r requirements.txt
 
 # Installeer de GPIO-pakketten (specifiek voor Raspberry Pi)
-pip install gpiozero RPi.GPIO
+pip install gpiozero lgpio
 ```
+
+> **Wat installeer je via requirements.txt?**
+> - `flask` — het webframework waarop de app draait
+> - `Pillow` — beeldverwerking (afbeeldingen schalen, uploaden)
+> - `openpyxl` — Excel-exports in het admin-paneel
+> - `reportlab` — PDF-exports in het admin-paneel
+>
+> De GPIO-pakketten (`gpiozero`, `lgpio`) staan **niet** in `requirements.txt` omdat ze alleen op een Raspberry Pi werken. Installeer ze apart na de basis-pakketten.
 
 ### Als een pakket niet installeert
 
@@ -330,13 +338,15 @@ pip install gpiozero RPi.GPIO
 ```bash
 # Dit betekent dat Ubuntu het beheer van pip blokkeert.
 # Gebruik --break-system-packages ALLEEN binnen de venv:
-pip install --break-system-packages flask Pillow openpyxl reportlab gpiozero RPi.GPIO
+pip install --break-system-packages -r requirements.txt
+pip install --break-system-packages gpiozero lgpio
 ```
 
-**Fout: `RPi.GPIO` installeert niet**  
-RPi.GPIO kan op sommige Ubuntu-versies problemen geven. Gebruik dan alleen gpiozero (de code ondersteunt dit):
+**Fout: `lgpio` installeert niet**  
+Probeer in dat geval de apt-versie van lgpio:
 ```bash
-pip install gpiozero lgpio
+sudo apt install -y python3-lgpio
+pip install gpiozero
 ```
 
 **Controleer of alles goed geïnstalleerd is:**
@@ -515,7 +525,7 @@ Druk in de terminal op `Ctrl + C`
 ```bash
 # De venv is niet geactiveerd, of de installatie is mislukt
 source venv/bin/activate
-pip install flask
+pip install -r requirements.txt
 ```
 
 **Fout: `Address already in use`**
@@ -632,7 +642,8 @@ Veel voorkomende problemen:
   cd /home/ksa/ksa-bar
   python3 -m venv venv
   source venv/bin/activate
-  pip install flask Pillow openpyxl reportlab gpiozero RPi.GPIO
+  pip install -r requirements.txt
+  pip install gpiozero lgpio
   ```
 - **Fout: `Permission denied`** → bestandsrechten aanpassen
   ```bash
@@ -928,6 +939,8 @@ sudo reboot
 ```bash
 source ~/ksa-bar/venv/bin/activate
 pip install lgpio gpiozero
+# Als apt-versie nodig is:
+sudo apt install -y python3-lgpio
 ```
 
 ---
@@ -990,7 +1003,8 @@ cd ~/ksa-bar
 source venv/bin/activate
 
 # Herinstalleer alle pakketten
-pip install --force-reinstall flask Pillow openpyxl reportlab gpiozero
+pip install --force-reinstall -r requirements.txt
+pip install --force-reinstall gpiozero lgpio
 
 # Herstart de service
 sudo systemctl restart ksa-bar
