@@ -5,6 +5,7 @@
   var activeInput = null;
   var kbd = null;
   var backInterval = null;
+  var _savedInputType = null;  // track original type when we switch number→text
 
   // ── CSS ─────────────────────────────────────────────────────────────────────
   function injectStyles() {
@@ -32,8 +33,7 @@
       '}' +
       '.numkbd-key:active,.numkbd-key.pressed{background:#2a2a36;transform:scale(.92);}' +
       '.numkbd-back{background:rgba(240,100,100,.1);color:#f06464;font-size:24px;}' +
-      '.numkbd-ok{background:rgba(74,222,128,.12);color:#4ade80;font-size:20px;min-width:90px;}' +
-      '.numkbd-zero{flex:2;max-width:190px;}';
+      '.numkbd-ok{background:rgba(74,222,128,.12);color:#4ade80;font-size:20px;flex:1;max-width:none;}';
     document.head.appendChild(s);
   }
 
@@ -50,7 +50,8 @@
       ['7', '8', '9'],
       ['4', '5', '6'],
       ['1', '2', '3'],
-      ['0', '.', 'BACK', 'OK']
+      ['.', '0', 'BACK'],
+      ['OK']
     ];
 
     rows.forEach(function (row) {
@@ -72,14 +73,11 @@
           var stop = function () { clearInterval(backInterval); backInterval = null; };
           btn.addEventListener('pointerup', stop);
           btn.addEventListener('pointerleave', stop);
+          btn.addEventListener('pointercancel', stop);
         } else if (key === 'OK') {
           btn.className += ' numkbd-ok';
           btn.textContent = '✓ OK';
           on(btn, hide);
-        } else if (key === '0') {
-          btn.className += ' numkbd-zero';
-          btn.textContent = '0';
-          on(btn, function () { type('0'); });
         } else if (key === '.') {
           btn.textContent = '.';
           on(btn, function () {
@@ -191,9 +189,16 @@
 
   function show(input) {
     if (!kbd) buildKbd();
+    // Switch type="number" → type="text" so decimal values like "1." are not sanitized
+    if (input.type === 'number') {
+      _savedInputType = 'number';
+      input.type = 'text';
+    } else {
+      _savedInputType = null;
+    }
     activeInput = input;
     // Hide the decimal button for integer-only inputs
-    var dotBtn = kbd.querySelector('.numkbd-key:not(.numkbd-back):not(.numkbd-ok):not(.numkbd-zero)');
+    var dotBtn = kbd.querySelector('.numkbd-key:not(.numkbd-back):not(.numkbd-ok)');
     if (dotBtn && dotBtn.textContent === '.') {
       var isInt = (input.dataset.numericKbd === 'int' || input.step === '1' ||
                    (!input.step && input.getAttribute('type') === 'number' &&
@@ -206,10 +211,32 @@
   }
 
   function hide() {
+    if (activeInput && _savedInputType) {
+      activeInput.type = _savedInputType;
+      _savedInputType = null;
+    }
     if (kbd) kbd.classList.remove('numkbd-on');
     restorePadding();
     activeInput = null;
   }
+
+  // ── Scroll-aware touch tracking ───────────────────────────────────────────────
+  // Track touch start position to distinguish tap (hide keyboard) from scroll (keep keyboard)
+  var _touchStartX = 0;
+  var _touchStartY = 0;
+  var _touchMoved  = false;
+
+  document.addEventListener('touchstart', function (e) {
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+    _touchMoved  = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function (e) {
+    var dx = Math.abs(e.touches[0].clientX - _touchStartX);
+    var dy = Math.abs(e.touches[0].clientY - _touchStartY);
+    if (dx > 8 || dy > 8) _touchMoved = true;
+  }, { passive: true });
 
   // ── Init ─────────────────────────────────────────────────────────────────────
 
@@ -232,20 +259,35 @@
   document.addEventListener('focusout', function (e) {
     var el = e.target;
     if (el && el.hasAttribute('data-numeric-kbd')) {
+      var wasMoved = _touchMoved;  // capture now, not after 150ms delay
       setTimeout(function () {
+        if (wasMoved) return;
         var focused = document.activeElement;
         if (!kbd || !kbd.contains(focused)) hide();
       }, 150);
     }
   });
 
-  // Tap outside keyboard → hide
+  // Tap outside keyboard → hide (mouse: always, touch: only when not scrolling)
   document.addEventListener('pointerdown', function (e) {
     if (!kbd || !kbd.classList.contains('numkbd-on')) return;
     if (kbd.contains(e.target)) return;
     if (activeInput && activeInput.contains(e.target)) return;
+    if (e.pointerType === 'touch') return;  // handled by touchend below
     hide();
   });
+
+  document.addEventListener('touchend', function (e) {
+    if (!kbd || !kbd.classList.contains('numkbd-on')) return;
+    if (_touchMoved) return;  // was a scroll, not a tap
+    var touch = e.changedTouches[0];
+    if (!touch) return;
+    var target = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!target) return;
+    if (kbd.contains(target)) return;
+    if (activeInput && activeInput.contains(target)) return;
+    hide();
+  }, { passive: true });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initInputs);

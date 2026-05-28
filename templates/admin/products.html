@@ -91,7 +91,9 @@
       <td>{{ p.naam }}</td>
       <td>{{ p.cat_naam }}</td>
       <td>€{{ "%.2f"|format(p.verkoop_prijs) }}</td>
-      <td>€{{ "%.2f"|format(p.aankoop_prijs) }}</td>
+      <td>€{{ "%.4f"|format(p.fifo_aankoop_prijs) if p.fifo_aankoop_prijs else '—' }}
+        <span class="text-dim" style="font-size:11px;" title="Nieuwste FIFO aankoopprijs">(FIFO)</span>
+      </td>
       <td class="{% if (p.stock or 0) <= 0 %}text-danger{% endif %}">{{ p.stock or 0 }}</td>
       <td>{{ p.deuren or '—' }}</td>
       <td>{% if p.actief %}<span class="badge-active">Actief</span>{% else %}<span class="badge-inactive">Inactief</span>{% endif %}</td>

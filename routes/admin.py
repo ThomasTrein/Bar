@@ -90,6 +90,7 @@ def dashboard():
 @admin_bp.route('/producten')
 @login_required
 def producten():
+    from services.fifo import get_latest_fifo_price
     cat_filter = request.args.get('cat', type=int)
     if cat_filter:
         prods = query(
@@ -109,6 +110,10 @@ def producten():
                LEFT JOIN product_doors pd ON p.id=pd.product_id
                GROUP BY p.id ORDER BY c.volgorde, p.naam"""
         )
+    # Enrich with latest FIFO purchase price per product
+    prods = [dict(p) for p in prods]
+    for p in prods:
+        p['fifo_aankoop_prijs'] = get_latest_fifo_price(p['id'])
     cats = query("SELECT * FROM categories ORDER BY volgorde")
     return render_template('admin/products.html', producten=prods, categorieen=cats)
 
@@ -442,6 +447,7 @@ def bestellingen():
         'datum_van':  request.args.get('datum_van', ''),
         'datum_tot':  request.args.get('datum_tot', ''),
         'person_id':  request.args.get('person_id', type=int),
+        'product_id': request.args.get('product_id', type=int),
     }
     sql = """SELECT o.id, o.tijdstip, o.type, o.geannuleerd, o.deur_niet_geopend, o.video_path,
                     p.voornaam, p.bijnaam,
@@ -458,12 +464,15 @@ def bestellingen():
         sql += " AND o.tijdstip <= ?"; params.append(filters['datum_tot'] + ' 23:59:59')
     if filters['person_id']:
         sql += " AND oi.person_id = ?"; params.append(filters['person_id'])
+    if filters['product_id']:
+        sql += " AND oi.product_id = ?"; params.append(filters['product_id'])
     sql += " GROUP BY o.id ORDER BY o.tijdstip DESC LIMIT 200"
 
     pers = query("SELECT id,voornaam,bijnaam FROM persons WHERE actief=1 ORDER BY voornaam")
+    prods = query("SELECT id,naam FROM products WHERE actief=1 ORDER BY naam")
     return render_template('admin/orders.html',
                            bestellingen=query(sql, params),
-                           personen=pers, filters=filters)
+                           personen=pers, producten=prods, filters=filters)
 
 
 @admin_bp.route('/bestellingen/<int:oid>')
@@ -770,16 +779,44 @@ def baravond_detail(bid):
     eind_inv  = json.loads(be['eind_inventaris'] or '{}')
     verbruik  = json.loads(be['verbruik'] or '{}')
 
-    # Verrijken met productnamen + prijzen
+    # Laad productinformatie (naam + huidige prijzen als fallback)
     product_ids = set(start_inv) | set(verbruik)
     prods = {}
     if product_ids:
         placeholders = ','.join('?' * len(product_ids))
         rows = query(
-            f"SELECT id, naam, verkoop_prijs, aankoop_prijs FROM products WHERE id IN ({placeholders})",
+            f"SELECT id, naam, verkoop_prijs FROM products WHERE id IN ({placeholders})",
             [int(i) for i in product_ids]
         )
         prods = {str(r['id']): dict(r) for r in rows}
+
+    # Laad opgeslagen baravond-prijzen (bevroren snapshot)
+    stored_prices = {}
+    price_rows = query(
+        "SELECT product_id, verkoop_prijs, aankoop_prijs FROM bar_evening_prices WHERE bar_evening_id=?",
+        (bid,)
+    )
+    for r in price_rows:
+        stored_prices[str(r['product_id'])] = {'vprijs': r['verkoop_prijs'], 'aprijs': r['aankoop_prijs']}
+
+    # Voor producten zonder snapshot: bereken FIFO aankoopprijs en sla op als snapshot
+    from services.fifo import get_fifo_cost_per_unit
+    missing = [pid_str for pid_str in (set(start_inv) | set(verbruik)) if pid_str not in stored_prices]
+    for pid_str in missing:
+        try:
+            prod_id = int(pid_str)
+            prod = prods.get(pid_str, {})
+            fifo_kost = get_fifo_cost_per_unit(prod_id)
+            vprijs = prod.get('verkoop_prijs', 0) or 0
+            execute(
+                """INSERT OR IGNORE INTO bar_evening_prices
+                   (bar_evening_id, product_id, verkoop_prijs, aankoop_prijs)
+                   VALUES (?,?,?,?)""",
+                (bid, prod_id, vprijs, fifo_kost)
+            )
+            stored_prices[pid_str] = {'vprijs': vprijs, 'aprijs': fifo_kost}
+        except Exception:
+            pass
 
     regels = []
     totaal_omzet = totaal_kosten = 0.0
@@ -787,13 +824,19 @@ def baravond_detail(bid):
         if verbruikt <= 0:
             continue
         prod = prods.get(pid_str, {})
-        vprijs = prod.get('verkoop_prijs', 0) or 0
-        aprijs = prod.get('aankoop_prijs', 0) or 0
+        # Gebruik opgeslagen prijs (altijd aanwezig na bovenstaande backfill)
+        if pid_str in stored_prices:
+            vprijs = stored_prices[pid_str]['vprijs']
+            aprijs = stored_prices[pid_str]['aprijs']
+        else:
+            vprijs = 0
+            aprijs = 0
         omzet  = verbruikt * vprijs
         kosten = verbruikt * aprijs
         totaal_omzet  += omzet
         totaal_kosten += kosten
         regels.append({
+            'pid':       pid_str,
             'naam':      prod.get('naam', f'Product {pid_str}'),
             'start':     start_inv.get(pid_str, 0),
             'eind':      eind_inv.get(pid_str, 0),
@@ -803,6 +846,7 @@ def baravond_detail(bid):
             'omzet':     omzet,
             'kosten':    kosten,
             'winst':     omzet - kosten,
+            'has_snapshot': pid_str in stored_prices,
         })
     regels.sort(key=lambda r: r['verbruikt'], reverse=True)
 
@@ -818,6 +862,30 @@ def baravond_detail(bid):
                            totaal_omzet=round(totaal_omzet, 2),
                            totaal_kosten=round(totaal_kosten, 2),
                            totaal_winst=round(totaal_omzet - totaal_kosten, 2))
+
+
+@admin_bp.route('/baravond/<int:bid>/prijzen', methods=['POST'])
+@login_required
+def baravond_update_prijzen(bid):
+    """Sla aangepaste verkoopprijzen op voor een baravond (bevroren per baravond)."""
+    be = query("SELECT id FROM bar_evenings WHERE id=?", (bid,), one=True)
+    if not be:
+        return redirect(url_for('admin.baravond_list'))
+    for key, val in request.form.items():
+        if key.startswith('vprijs_'):
+            pid = key.replace('vprijs_', '')
+            try:
+                nieuwe_prijs = float(val)
+                execute(
+                    """INSERT INTO bar_evening_prices (bar_evening_id, product_id, verkoop_prijs, aankoop_prijs)
+                       VALUES (?,?,?,0)
+                       ON CONFLICT(bar_evening_id, product_id) DO UPDATE SET verkoop_prijs=excluded.verkoop_prijs""",
+                    (bid, int(pid), nieuwe_prijs)
+                )
+            except (ValueError, Exception):
+                pass
+    flash('Verkoopprijzen opgeslagen.', 'success')
+    return redirect(url_for('admin.baravond_detail', bid=bid))
 
 
 @admin_bp.route('/baravond/<int:bid>/naam', methods=['POST'])

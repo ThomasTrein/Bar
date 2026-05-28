@@ -236,6 +236,19 @@ def get_fifo_cost_per_unit(product_id: int) -> float:
     return (kost / totaal) if totaal else 0.0
 
 
+def get_latest_fifo_price(product_id: int) -> float:
+    """Geeft de aankoopprijs van de meest recente FIFO batch voor een product."""
+    conn = get_db()
+    row = conn.execute(
+        """SELECT aankoop_prijs FROM fifo_batches
+           WHERE product_id = ?
+           ORDER BY datum DESC, id DESC LIMIT 1""",
+        (product_id,)
+    ).fetchone()
+    conn.close()
+    return row['aankoop_prijs'] if row else 0.0
+
+
 def get_product_profit_stats(product_id: int, start_datum: str, eind_datum: str) -> dict:
     """Winststatistieken voor een product over een periode."""
     from database.db import get_db as _db

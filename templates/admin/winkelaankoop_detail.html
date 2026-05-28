@@ -35,8 +35,8 @@
                  min="0" class="form-input short-input" data-numeric-kbd="int">
         </td>
         <td>
-          <input type="number" step="0.01" name="prijs_{{ item.id }}"
-                 value="{{ '%.2f'|format(item.aankoop_prijs_per_stuk) }}"
+          <input type="number" step="0.0001" name="prijs_{{ item.id }}"
+                 value="{{ '%.4f'|format(item.aankoop_prijs_per_stuk) }}"
                  min="0" class="form-input short-input" data-numeric-kbd="1">
         </td>
         <td>€{{ "%.2f"|format(sub) }}</td>
@@ -52,7 +52,7 @@
   </table>
   <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
     <button type="submit" class="btn-primary">Opslaan</button>
-    <span class="text-dim" style="font-size:13px;">Hoeveelheid op 0 zetten verwijdert het item.</span>
+    <span class="text-dim" style="font-size:13px;">Hoeveelheid op 0 zetten verwijdert het item. Prijs: tot 4 cijfers na de komma (bv. 0,3750).</span>
   </div>
 </form>
 {% else %}

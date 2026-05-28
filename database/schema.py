@@ -196,6 +196,17 @@ def init_db():
             product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
             PRIMARY KEY (deur, vak)
         )""",
+        # Meerdere producten per vak: voeg product_ids JSON-kolom toe
+        "ALTER TABLE fridge_layout ADD COLUMN product_ids TEXT DEFAULT NULL",
+        # Bar evening prijzen snapshot: aparte tabel per product per baravond
+        """CREATE TABLE IF NOT EXISTS bar_evening_prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bar_evening_id INTEGER REFERENCES bar_evenings(id) ON DELETE CASCADE,
+            product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+            verkoop_prijs REAL NOT NULL DEFAULT 0,
+            aankoop_prijs REAL NOT NULL DEFAULT 0,
+            UNIQUE(bar_evening_id, product_id)
+        )""",
     ]
     for sql in migrations:
         try:

@@ -32,8 +32,12 @@
   </div>
 
   {% else %}
-  {# STAP 2: drag & drop frigo layout #}
+  {# STAP 2: frigo layout — meerdere producten per vak #}
   <div class="mode-banner mode-banner-refill">🔄 Aanvulmodus actief — deuren staan open</div>
+  <p style="color:var(--text-dim);font-size:13px;margin:0 0 12px;text-align:center;">
+    Tik een product aan → tik daarna op een vak om het toe te voegen. Of sleep het product naar een vak.
+    Elk vak kan meerdere producten bevatten. Klik ✕ om een product uit een vak te verwijderen.
+  </p>
 
   <div class="refill-dd-wrap">
     {# Productenlijst #}
@@ -62,8 +66,8 @@
              data-deur="{{ d }}" data-vak="{{ v }}">
           <div class="refill-slot-label">Vak {{ v }}</div>
           <div class="refill-slot-content" id="slot-content-{{ d }}-{{ v }}">
-            {% if layout.get(d|string + '-' + v|string) %}
-            {% set pid = layout[d|string + '-' + v|string] %}
+            {% set slot_products = layout.get(d|string + '-' + v|string, []) %}
+            {% for pid in slot_products %}
             {% if pid in product_names %}
             <div class="refill-placed-chip"
                  draggable="true"
@@ -71,10 +75,11 @@
                  data-naam="{{ product_names[pid] }}"
                  data-slot="{{ d }}-{{ v }}">
               {{ product_names[pid] }}
-              <button type="button" class="refill-remove-btn" onclick="removeFromSlot('{{ d }}-{{ v }}')">✕</button>
+              <button type="button" class="refill-remove-btn"
+                      onclick="removeChipFromSlot('{{ d }}-{{ v }}', {{ pid }})">✕</button>
             </div>
             {% endif %}
-            {% endif %}
+            {% endfor %}
           </div>
         </div>
         {% endfor %}
@@ -100,12 +105,29 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/personen_zoek.js') }}"></script>
 <script>
+// ── Tap-to-select state ────────────────────────────────────
+let selectedProdId   = null;
+let selectedProdNaam = null;
+let selectedChip     = null;
+
+function selectProduct(el) {
+  if (selectedChip) selectedChip.classList.remove('selected');
+  if (selectedChip === el) {
+    selectedChip = null; selectedProdId = null; selectedProdNaam = null;
+    return;
+  }
+  selectedChip     = el;
+  selectedProdId   = el.dataset.id;
+  selectedProdNaam = el.dataset.naam;
+  el.classList.add('selected');
+}
+
 // ── Drag & Drop state ──────────────────────────────────────
 let dragProductId   = null;
 let dragProductNaam = null;
-let dragSourceSlot  = null;  // "deur-vak" string or null (from panel)
+let dragSourceSlot  = null;
 
-// ── Drag handlers ─────────────────────────────────────────
+// ── Drag handler (desktop) ─────────────────────────────────
 function setupChipDrag(el) {
   el.addEventListener('dragstart', function(e) {
     dragProductId   = el.dataset.id;
@@ -114,34 +136,137 @@ function setupChipDrag(el) {
     el.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
   });
-  el.addEventListener('dragend', function() {
-    el.classList.remove('dragging');
-  });
+  el.addEventListener('dragend', function() { el.classList.remove('dragging'); });
 }
 
-// Setup existing product chips
-document.querySelectorAll('.refill-prod-chip, .refill-placed-chip').forEach(setupChipDrag);
+// ── Touch support ──────────────────────────────────────────
+let touchClone    = null;
+let touchProdId   = null;
+let touchProdNaam = null;
+let touchSrcSlot  = null;
+let touchStartX   = 0;
+let touchStartY   = 0;
+let touchMoved    = false;
 
-// Setup drop zones
+function setupTouchChip(el) {
+  el.addEventListener('touchstart', function(e) {
+    touchStartX   = e.touches[0].clientX;
+    touchStartY   = e.touches[0].clientY;
+    touchMoved    = false;
+    touchProdId   = el.dataset.id;
+    touchProdNaam = el.dataset.naam;
+    touchSrcSlot  = el.dataset.slot || null;
+  }, { passive: true });
+
+  el.addEventListener('touchmove', function(e) {
+    var dx = Math.abs(e.touches[0].clientX - touchStartX);
+    var dy = Math.abs(e.touches[0].clientY - touchStartY);
+    if (!touchMoved && (dx > 8 || dy > 8)) {
+      touchMoved = true;
+      touchClone = document.createElement('div');
+      touchClone.textContent = el.dataset.naam || '';
+      touchClone.style.cssText = 'position:fixed;opacity:.85;pointer-events:none;z-index:9999;' +
+        'padding:8px 14px;background:var(--accent);color:#000;' +
+        'border-radius:8px;font-weight:700;font-size:14px;white-space:nowrap;';
+      document.body.appendChild(touchClone);
+    }
+    if (touchClone) {
+      e.preventDefault();
+      const t = e.touches[0];
+      touchClone.style.left = (t.clientX - touchClone.offsetWidth / 2) + 'px';
+      touchClone.style.top  = (t.clientY - 28) + 'px';
+      document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      const slot = under && under.closest('.refill-slot');
+      if (slot) slot.classList.add('drag-over');
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchend', function(e) {
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
+    if (!touchMoved) {
+      touchProdId = null; touchProdNaam = null; touchSrcSlot = null;
+      return;
+    }
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const under = document.elementFromPoint(t.clientX, t.clientY);
+    const slot = under && under.closest('.refill-slot');
+    if (slot) {
+      addProductToSlot(slot.dataset.deur + '-' + slot.dataset.vak, touchProdId, touchProdNaam, touchSrcSlot);
+    } else if (under && under.closest('#productsPanel') && touchSrcSlot && touchProdId) {
+      removeChipFromSlot(touchSrcSlot, touchProdId);
+    }
+    touchProdId = null; touchProdNaam = null; touchSrcSlot = null;
+  }, { passive: true });
+}
+
+// ── Core placement logic ───────────────────────────────────
+function addProductToSlot(slotKey, prodId, prodNaam, srcSlot) {
+  if (!prodId) return;
+  if (srcSlot && srcSlot !== slotKey) removeChipFromSlot(srcSlot, prodId);
+  const [d, v] = slotKey.split('-');
+  const contentEl = document.getElementById('slot-content-' + d + '-' + v);
+  if (contentEl.querySelector('[data-id="' + prodId + '"]')) return;  // already present
+  const chip = document.createElement('div');
+  chip.className = 'refill-placed-chip';
+  chip.draggable = true;
+  chip.dataset.id   = String(prodId);
+  chip.dataset.naam = prodNaam;
+  chip.dataset.slot = slotKey;
+  chip.innerHTML = '<span class="chip-naam">' + prodNaam + '</span>' +
+    ' <button type="button" class="refill-remove-btn" ' +
+    'onclick="removeChipFromSlot(\'' + slotKey + '\',' + prodId + ')">✕</button>';
+  contentEl.appendChild(chip);
+  setupChipDrag(chip);
+  setupTouchChip(chip);
+}
+
+function removeChipFromSlot(slotKey, prodId) {
+  const [d, v] = slotKey.split('-');
+  const contentEl = document.getElementById('slot-content-' + d + '-' + v);
+  if (prodId !== undefined && prodId !== null) {
+    const chip = contentEl.querySelector('[data-id="' + prodId + '"]');
+    if (chip) chip.remove();
+  } else {
+    contentEl.innerHTML = '';
+  }
+}
+
+// ── Wire up existing elements ──────────────────────────────
+document.querySelectorAll('.refill-prod-chip').forEach(function(el) {
+  setupChipDrag(el);
+  setupTouchChip(el);
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    selectProduct(el);
+  });
+});
+
+document.querySelectorAll('.refill-placed-chip').forEach(function(el) {
+  setupChipDrag(el);
+  setupTouchChip(el);
+});
+
 document.querySelectorAll('.refill-slot').forEach(function(slot) {
   slot.addEventListener('dragover', function(e) {
     e.preventDefault();
     slot.classList.add('drag-over');
   });
-  slot.addEventListener('dragleave', function() {
-    slot.classList.remove('drag-over');
-  });
+  slot.addEventListener('dragleave', function() { slot.classList.remove('drag-over'); });
   slot.addEventListener('drop', function(e) {
     e.preventDefault();
     slot.classList.remove('drag-over');
-    const deur = slot.dataset.deur;
-    const vak  = slot.dataset.vak;
-    const key  = deur + '-' + vak;
-    placeProduct(key, dragProductId, dragProductNaam, dragSourceSlot);
+    addProductToSlot(slot.dataset.deur + '-' + slot.dataset.vak, dragProductId, dragProductNaam, dragSourceSlot);
+  });
+  slot.addEventListener('click', function(e) {
+    if (!selectedProdId) return;
+    if (e.target.classList.contains('refill-remove-btn')) return;
+    addProductToSlot(slot.dataset.deur + '-' + slot.dataset.vak, selectedProdId, selectedProdNaam, null);
   });
 });
 
-// Products panel drop (remove from slot)
 document.getElementById('productsPanel').addEventListener('dragover', function(e) {
   if (dragSourceSlot) { e.preventDefault(); this.classList.add('drag-over-panel'); }
 });
@@ -151,116 +276,35 @@ document.getElementById('productsPanel').addEventListener('dragleave', function(
 document.getElementById('productsPanel').addEventListener('drop', function(e) {
   e.preventDefault();
   this.classList.remove('drag-over-panel');
-  if (dragSourceSlot) removeFromSlot(dragSourceSlot);
+  if (dragSourceSlot && dragProductId) removeChipFromSlot(dragSourceSlot, dragProductId);
 });
 
-// ── Touch support ──────────────────────────────────────────
-let touchDragEl   = null;
-let touchClone    = null;
-let touchProdId   = null;
-let touchProdNaam = null;
-let touchSrcSlot  = null;
-
-function setupTouchChip(el) {
-  el.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    touchProdId   = el.dataset.id;
-    touchProdNaam = el.dataset.naam;
-    touchSrcSlot  = el.dataset.slot || null;
-    touchDragEl   = el;
-    // Create visual clone
-    touchClone = el.cloneNode(true);
-    touchClone.style.cssText = 'position:fixed;opacity:.85;pointer-events:none;z-index:9999;' +
-      'width:' + el.offsetWidth + 'px;padding:8px 12px;background:var(--accent);color:#000;' +
-      'border-radius:8px;font-weight:700;font-size:13px;transform:scale(1.05);';
-    const t = e.touches[0];
-    touchClone.style.left = (t.clientX - el.offsetWidth/2) + 'px';
-    touchClone.style.top  = (t.clientY - 20) + 'px';
-    document.body.appendChild(touchClone);
-  }, { passive: false });
-
-  el.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-    if (!touchClone) return;
-    const t = e.touches[0];
-    touchClone.style.left = (t.clientX - parseInt(touchClone.style.width)/2) + 'px';
-    touchClone.style.top  = (t.clientY - 20) + 'px';
-    // Highlight slot under finger
-    document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
-    const under = document.elementFromPoint(t.clientX, t.clientY);
-    const slot = under && under.closest('.refill-slot');
-    if (slot) slot.classList.add('drag-over');
-  }, { passive: false });
-
-  el.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    if (touchClone) { touchClone.remove(); touchClone = null; }
-    document.querySelectorAll('.refill-slot').forEach(s => s.classList.remove('drag-over'));
-    if (!e.changedTouches[0]) return;
-    const t = e.changedTouches[0];
-    const under = document.elementFromPoint(t.clientX, t.clientY);
-    const slot = under && under.closest('.refill-slot');
-    if (slot) {
-      const key = slot.dataset.deur + '-' + slot.dataset.vak;
-      placeProduct(key, touchProdId, touchProdNaam, touchSrcSlot);
-    } else {
-      // Dropped over panel?
-      const panel = under && under.closest('#productsPanel');
-      if (panel && touchSrcSlot) removeFromSlot(touchSrcSlot);
-    }
-    touchDragEl = null; touchProdId = null; touchProdNaam = null; touchSrcSlot = null;
-  }, { passive: false });
-}
-
-document.querySelectorAll('.refill-prod-chip, .refill-placed-chip').forEach(setupTouchChip);
-
-// ── Core placement logic ───────────────────────────────────
-function placeProduct(slotKey, prodId, prodNaam, srcSlot) {
-  if (!prodId) return;
-
-  // Clear source slot if dragged from a slot
-  if (srcSlot && srcSlot !== slotKey) {
-    const [sd, sv] = srcSlot.split('-');
-    document.getElementById('slot-content-' + sd + '-' + sv).innerHTML = '';
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.refill-prod-chip') &&
+      !e.target.closest('.refill-slot') &&
+      !e.target.closest('.refill-placed-chip')) {
+    if (selectedChip) selectedChip.classList.remove('selected');
+    selectedChip = null; selectedProdId = null; selectedProdNaam = null;
   }
-
-  // If the target slot already had a product, send it back conceptually
-  const [d, v] = slotKey.split('-');
-  const contentEl = document.getElementById('slot-content-' + d + '-' + v);
-
-  // Build placed chip
-  contentEl.innerHTML = '';
-  const chip = document.createElement('div');
-  chip.className = 'refill-placed-chip';
-  chip.draggable = true;
-  chip.dataset.id   = prodId;
-  chip.dataset.naam = prodNaam;
-  chip.dataset.slot = slotKey;
-  chip.innerHTML = prodNaam +
-    ' <button type="button" class="refill-remove-btn" onclick="removeFromSlot(\'' + slotKey + '\')">✕</button>';
-  contentEl.appendChild(chip);
-  setupChipDrag(chip);
-  setupTouchChip(chip);
-}
-
-function removeFromSlot(slotKey) {
-  const [d, v] = slotKey.split('-');
-  document.getElementById('slot-content-' + d + '-' + v).innerHTML = '';
-}
+});
 
 // ── Serialize & save ──────────────────────────────────────
 function buildLayoutData() {
-  const layout  = {};  // "d-v": product_id
-  const doorMap = {};  // product_id: [deuren]
+  const layout  = {};
+  const doorMap = {};
   document.querySelectorAll('.refill-slot').forEach(function(slot) {
     const d = slot.dataset.deur;
     const v = slot.dataset.vak;
-    const chip = slot.querySelector('.refill-placed-chip');
-    if (chip) {
-      const pid = chip.dataset.id;
-      layout[d + '-' + v] = parseInt(pid);
-      if (!doorMap[pid]) doorMap[pid] = [];
-      if (!doorMap[pid].includes(parseInt(d))) doorMap[pid].push(parseInt(d));
+    const chips = slot.querySelectorAll('.refill-placed-chip');
+    if (chips.length > 0) {
+      const ids = [];
+      chips.forEach(function(chip) {
+        const pid = parseInt(chip.dataset.id);
+        ids.push(pid);
+        if (!doorMap[pid]) doorMap[pid] = [];
+        if (!doorMap[pid].includes(parseInt(d))) doorMap[pid].push(parseInt(d));
+      });
+      layout[d + '-' + v] = ids;
     }
   });
   return { layout, doorMap };
@@ -281,4 +325,43 @@ function stopZonderOpslaan() {
   });
 }
 </script>
+<style>
+.refill-prod-chip.selected {
+  background: var(--accent);
+  color: #000;
+  outline: 3px solid #fff;
+  transform: scale(1.05);
+}
+.refill-slot { cursor: pointer; }
+.refill-slot.drag-over {
+  outline: 2px dashed var(--accent);
+  background: rgba(74,222,128,.08);
+}
+.refill-placed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px;
+  padding: 4px 8px;
+  background: var(--accent);
+  color: #000;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: grab;
+}
+.refill-placed-chip .chip-naam {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.refill-slot-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-height: 32px;
+  padding: 4px;
+}
+</style>
 {% endblock %}

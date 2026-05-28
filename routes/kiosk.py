@@ -444,6 +444,24 @@ def baravond_start():
         "INSERT INTO bar_evenings (activator_id, start_inventaris, video_path, naam) VALUES (?,?,?,?)",
         (pid, json.dumps(inv), rec.get_relatief_pad(), naam)
     )
+
+    # Sla prijzen op als snapshot zodat latere prijswijzigingen niet de baravond beïnvloeden
+    from services.fifo import get_fifo_cost_per_unit
+    for prod_id_str in inv:
+        try:
+            prod_id = int(prod_id_str)
+            prod = query("SELECT verkoop_prijs FROM products WHERE id=?", (prod_id,), one=True)
+            if prod:
+                aankoop = get_fifo_cost_per_unit(prod_id)
+                execute(
+                    """INSERT OR REPLACE INTO bar_evening_prices
+                       (bar_evening_id, product_id, verkoop_prijs, aankoop_prijs)
+                       VALUES (?,?,?,?)""",
+                    (bar_id, prod_id, prod['verkoop_prijs'] or 0, aankoop)
+                )
+        except Exception:
+            pass
+
     get_fridge_controller().unlock_all()
     add_log('baravond', "Baravond gestart", pid, bar_id, 'bar_evening')
     session['active_bar_evening'] = bar_id
@@ -497,9 +515,20 @@ def aanvullen():
     actief_id = session.get('active_refill')
     persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
 
-    # Load current fridge layout
-    layout_rows = query("SELECT deur, vak, product_id FROM fridge_layout") if actief_id else []
-    layout = {f"{r['deur']}-{r['vak']}": r['product_id'] for r in layout_rows}
+    # Load current fridge layout (multi-product per slot)
+    layout = {}  # {"d-v": [product_id, ...]}
+    if actief_id:
+        layout_rows = query("SELECT deur, vak, product_id, product_ids FROM fridge_layout")
+        for r in layout_rows:
+            key = f"{r['deur']}-{r['vak']}"
+            if r['product_ids']:
+                try:
+                    ids = json.loads(r['product_ids'])
+                    layout[key] = ids if isinstance(ids, list) else [ids]
+                except (ValueError, TypeError):
+                    layout[key] = [r['product_id']] if r['product_id'] else []
+            elif r['product_id']:
+                layout[key] = [r['product_id']]
     product_names = {p['id']: p['naam'] for p in producten}
 
     return render_template('kiosk/refill.html',
@@ -566,15 +595,24 @@ def aanvullen_stop():
         except (ValueError, Exception):
             pass
 
-    # Update fridge_layout from layout_data ("d-v": product_id)
+    # Update fridge_layout from layout_data ("d-v": [product_id, ...])
     if layout_data:
         conn.execute("DELETE FROM fridge_layout")
-        for slot_key, prod_id in layout_data.items():
+        for slot_key, prod_ids in layout_data.items():
             try:
                 parts = slot_key.split('-')
                 d, v = int(parts[0]), int(parts[1])
-                conn.execute("INSERT OR REPLACE INTO fridge_layout (deur, vak, product_id) VALUES (?,?,?)",
-                             (d, v, int(prod_id)))
+                # Support both single int (legacy) and list
+                if isinstance(prod_ids, list):
+                    ids = [int(x) for x in prod_ids if x]
+                else:
+                    ids = [int(prod_ids)] if prod_ids else []
+                if ids:
+                    first_id = ids[0]
+                    conn.execute(
+                        "INSERT OR REPLACE INTO fridge_layout (deur, vak, product_id, product_ids) VALUES (?,?,?,?)",
+                        (d, v, first_id, json.dumps(ids))
+                    )
             except (ValueError, IndexError, Exception):
                 pass
 
