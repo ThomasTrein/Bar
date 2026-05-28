@@ -55,7 +55,7 @@
           <div class="inv-kaart-naam">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
-            <input type="number" name="product_{{ p.id }}"
+            <input type="text" inputmode="none" name="product_{{ p.id }}"
                    value="{{ p.stock if p.stock > 0 else 0 }}"
                    min="0" class="inv-qty-input" data-numeric-kbd="int">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
@@ -78,7 +78,7 @@
           <div class="inv-kaart-naam">{{ p.naam }}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
-            <input type="number" name="product_{{ p.id }}"
+            <input type="text" inputmode="none" name="product_{{ p.id }}"
                    value="{{ p.stock if p.stock > 0 else 0 }}"
                    min="0" class="inv-qty-input" data-numeric-kbd="int">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>
@@ -143,7 +143,7 @@
           <div class="inv-kaart-naam">{{ p.naam }}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
-            <input type="number" name="product_{{ p.id }}"
+            <input type="text" inputmode="none" name="product_{{ p.id }}"
                    value="{{ p.stock if p.stock > 0 else 0 }}"
                    min="0" class="inv-qty-input" data-numeric-kbd="int">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,1)">+</button>

@@ -65,8 +65,10 @@
     injectStyles();
     popup = document.createElement('div');
     popup.id = 'dp-popup';
-    popup.addEventListener('mousedown', function (e) { e.preventDefault(); });
-    popup.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+    // Prevent focus loss AND prevent outside-click handler from seeing clicks inside popup
+    popup.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); });
+    popup.addEventListener('mousedown',   function (e) { e.preventDefault(); });
+    popup.addEventListener('touchstart',  function (e) { e.stopPropagation(); }, { passive: true });
     document.body.appendChild(popup);
   }
 
@@ -180,21 +182,33 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  function initDateInputs() {
+    // Pre-set inputmode="none" on all date inputs so native picker never shows
+    document.querySelectorAll('input[type="date"]').forEach(function (el) {
+      el.setAttribute('inputmode', 'none');
+      el.setAttribute('autocomplete', 'off');
+    });
+  }
+
   document.addEventListener('focusin', function (e) {
     var el = e.target;
     if (!el || el.tagName !== 'INPUT' || el.type !== 'date') return;
-    // Prevent native picker
-    el.setAttribute('inputmode', 'none');
+    el.setAttribute('inputmode', 'none');  // ensure it's set even for dynamically added inputs
     show(el);
   });
 
-  // Close on outside tap
+  // Close on outside tap — note: clicks inside popup are stopped at popup level (stopPropagation)
   document.addEventListener('pointerdown', function (e) {
     if (!popup || popup.style.display === 'none') return;
-    if (popup.contains(e.target)) return;
     if (activeEl && e.target === activeEl) return;
     hide();
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDateInputs);
+  } else {
+    initDateInputs();
+  }
 
   window.datePicker = { show: show, hide: hide };
 }());

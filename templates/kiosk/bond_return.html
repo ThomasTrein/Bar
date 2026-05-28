@@ -23,7 +23,7 @@
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" data-no-loading
                     onclick="this.nextElementSibling.stepDown();this.nextElementSibling.dispatchEvent(new Event('change'))">−</button>
-            <input type="number" name="qty_{{ p.id }}" value="0" min="0" max="99"
+            <input type="text" inputmode="none" name="qty_{{ p.id }}" value="0" min="0" max="99"
                    class="inv-qty-input" data-numeric-kbd="int">
             <button type="button" class="inv-qty-btn" data-no-loading
                     onclick="this.previousElementSibling.stepUp();this.previousElementSibling.dispatchEvent(new Event('change'))">+</button>
@@ -46,7 +46,7 @@
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" data-no-loading
                     onclick="this.nextElementSibling.stepDown();this.nextElementSibling.dispatchEvent(new Event('change'))">−</button>
-            <input type="number" name="qty_{{ p.id }}" value="0" min="0" max="99"
+            <input type="text" inputmode="none" name="qty_{{ p.id }}" value="0" min="0" max="99"
                    class="inv-qty-input" data-numeric-kbd="int">
             <button type="button" class="inv-qty-btn" data-no-loading
                     onclick="this.previousElementSibling.stepUp();this.previousElementSibling.dispatchEvent(new Event('change'))">+</button>

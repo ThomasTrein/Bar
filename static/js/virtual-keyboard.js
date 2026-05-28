@@ -292,8 +292,12 @@
     document.addEventListener('focusin', function(e) {
       var el = e.target;
       if (!el || !el.matches) return;
+      // Don't show virtual keyboard for numeric-kbd inputs — they have their own keyboard
+      if (el.hasAttribute('data-numeric-kbd')) return;
       if (el.matches('input[type="text"], input[type="password"], input[type="search"]')) {
         if (el.dataset.noVkbd === '1') return;
+        // Hide numeric keyboard if it's open
+        if (window.numKbd) window.numKbd.hide();
         show(el);
       }
     });
@@ -313,4 +317,6 @@
   } else {
     init();
   }
+
+  window.vKbd = { show: show, hide: hide };
 })();

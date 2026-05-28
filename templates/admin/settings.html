@@ -21,7 +21,7 @@
     </div>
     <div class="form-group">
       <label>Admin auto-logout (minuten)</label>
-      <input type="number" name="admin_logout_min"
+      <input type="text" inputmode="none" name="admin_logout_min"
              value="{{ settings.get('admin_logout_min', 10) }}"
              min="1" max="120" class="form-input" data-numeric-kbd="int">
     </div>
@@ -32,19 +32,19 @@
     <h2>⏱️ Tijdslimieten</h2>
     <div class="form-group">
       <label>Deur time-out (seconden)</label>
-      <input type="number" name="deur_timeout_sec"
+      <input type="text" inputmode="none" name="deur_timeout_sec"
              value="{{ settings.get('deur_timeout_sec', 120) }}"
              min="10" max="600" class="form-input" data-numeric-kbd="int">
     </div>
     <div class="form-group">
       <label>Screensaver time-out (minuten)</label>
-      <input type="number" name="screensaver_timeout_min"
+      <input type="text" inputmode="none" name="screensaver_timeout_min"
              value="{{ settings.get('screensaver_timeout_min', 2) }}"
              min="1" max="60" class="form-input" data-numeric-kbd="int">
     </div>
     <div class="form-group">
       <label>Video bewaarperiode (dagen)</label>
-      <input type="number" name="video_bewaar_dagen"
+      <input type="text" inputmode="none" name="video_bewaar_dagen"
              value="{{ settings.get('video_bewaar_dagen', 40) }}"
              min="1" max="365" class="form-input" data-numeric-kbd="int">
     </div>
@@ -62,19 +62,19 @@
     </div>
     <div class="form-group">
       <label>Dranken naast elkaar (bestellingsscherm)</label>
-      <input type="number" name="product_kolommen"
+      <input type="text" inputmode="none" name="product_kolommen"
              value="{{ settings.get('product_kolommen', '2') }}"
              min="1" max="6" class="form-input" data-numeric-kbd="int">
     </div>
     <div class="form-group">
       <label>Personen naast elkaar (naamselectie)</label>
-      <input type="number" name="persoon_kolommen"
+      <input type="text" inputmode="none" name="persoon_kolommen"
              value="{{ settings.get('persoon_kolommen', '4') }}"
              min="1" max="8" class="form-input" data-numeric-kbd="int">
     </div>
     <div class="form-group">
       <label>Kolommen inventarisraster (baravond &amp; winkelaankoop)</label>
-      <input type="number" name="inv_kolommen"
+      <input type="text" inputmode="none" name="inv_kolommen"
              value="{{ settings.get('inv_kolommen', '3') }}"
              min="1" max="6" class="form-input" data-numeric-kbd="int">
     </div>

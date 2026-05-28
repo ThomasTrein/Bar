@@ -5,7 +5,6 @@
   var activeInput = null;
   var kbd = null;
   var backInterval = null;
-  var _savedInputType = null;  // track original type when we switch number→text
 
   // ── CSS ─────────────────────────────────────────────────────────────────────
   function injectStyles() {
@@ -189,21 +188,13 @@
 
   function show(input) {
     if (!kbd) buildKbd();
-    // Switch type="number" → type="text" so decimal values like "1." are not sanitized
-    if (input.type === 'number') {
-      _savedInputType = 'number';
-      input.type = 'text';
-    } else {
-      _savedInputType = null;
-    }
     activeInput = input;
-    // Hide the decimal button for integer-only inputs
+    // Hide virtual keyboard if open
+    if (window.vKbd) window.vKbd.hide();
+    // Hide decimal button for integer-only inputs
     var dotBtn = kbd.querySelector('.numkbd-key:not(.numkbd-back):not(.numkbd-ok)');
     if (dotBtn && dotBtn.textContent === '.') {
-      var isInt = (input.dataset.numericKbd === 'int' || input.step === '1' ||
-                   (!input.step && input.getAttribute('type') === 'number' &&
-                    !input.getAttribute('step')));
-      dotBtn.style.display = isInt ? 'none' : '';
+      dotBtn.style.display = (input.dataset.numericKbd === 'int') ? 'none' : '';
     }
     kbd.classList.add('numkbd-on');
     // After keyboard animation, scroll input into view above keyboard
@@ -211,10 +202,6 @@
   }
 
   function hide() {
-    if (activeInput && _savedInputType) {
-      activeInput.type = _savedInputType;
-      _savedInputType = null;
-    }
     if (kbd) kbd.classList.remove('numkbd-on');
     restorePadding();
     activeInput = null;
