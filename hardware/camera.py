@@ -37,10 +37,11 @@ class Recording:
                 '-framerate', str(CAMERA_FPS),
                 '-i', f'/dev/video{CAMERA_DEVICE}',
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+                '-movflags', '+faststart',
                 '-an', '-y', self.pad
             ]
             try:
-                self._process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 print(f"[REC] Opname gestart: {self.bestand}")
             except FileNotFoundError:
                 print("[WARN] ffmpeg niet gevonden")
