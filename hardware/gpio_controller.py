@@ -5,7 +5,7 @@ Op andere systemen: stub-implementatie voor development.
 """
 import threading, time, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config import IS_RASPBERRY_PI, RELAY_PINS, REED_PINS, RELAY_ACTIVE_HIGH
+from config import IS_RASPBERRY_PI, RELAY_PINS, HOLD_RELAY_PINS, REED_PINS, RELAY_ACTIVE_HIGH, TRIGGER_PULSE_MS
 
 try:
     from gpiozero import OutputDevice, Button
@@ -25,25 +25,35 @@ class DoorController:
         self._callbacks = []
 
         if GPIO_AVAILABLE and IS_RASPBERRY_PI:
-            self._relay = OutputDevice(RELAY_PINS[deur], active_high=RELAY_ACTIVE_HIGH, initial_value=False)
+            self._relay      = OutputDevice(RELAY_PINS[deur],      active_high=RELAY_ACTIVE_HIGH, initial_value=False)
+            self._hold_relay = OutputDevice(HOLD_RELAY_PINS[deur], active_high=RELAY_ACTIVE_HIGH, initial_value=False)
             self._reed  = Button(REED_PINS[deur], pull_up=True, bounce_time=0.05)
-            self._reed.when_pressed  = self._on_open
-            self._reed.when_released = self._on_close
+            self._reed.when_pressed  = self._on_close
+            self._reed.when_released = self._on_open
         else:
-            self._relay = None
-            self._reed  = None
+            self._relay      = None
+            self._hold_relay = None
+            self._reed       = None
 
     def unlock(self):
         self._unlocked = True
-        if self._relay:
-            self._relay.on()
         self._fire('unlock')
         print(f"[UNLOCK] Deur {self.deur} ontgrendeld")
+        if self._relay:
+            self._relay.on()
+            def _finish_pulse():
+                time.sleep(TRIGGER_PULSE_MS / 1000.0)
+                self._relay.off()
+                if self._hold_relay:
+                    self._hold_relay.on()
+            threading.Thread(target=_finish_pulse, daemon=True).start()
+        elif self._hold_relay:
+            self._hold_relay.on()
 
     def lock(self):
         self._unlocked = False
-        if self._relay:
-            self._relay.off()
+        if self._hold_relay:
+            self._hold_relay.off()
         self._fire('lock')
         print(f"[LOCK] Deur {self.deur} vergrendeld")
 
@@ -52,7 +62,7 @@ class DoorController:
 
     def is_open(self) -> bool:
         if self._reed:
-            return self._reed.is_pressed
+            return not self._reed.is_pressed
         return self._open
 
     def simulate_open(self):
@@ -85,6 +95,9 @@ class DoorController:
         if self._relay:
             self._relay.off()
             self._relay.close()
+        if self._hold_relay:
+            self._hold_relay.off()
+            self._hold_relay.close()
         if self._reed:
             self._reed.close()
 

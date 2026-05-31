@@ -18,9 +18,11 @@ UPLOADS_SCREENSAVER_DIR = os.path.join(UPLOADS_DIR, 'screensaver')
 IS_RASPBERRY_PI = os.path.exists('/proc/device-tree/model')
 
 # GPIO pins (BCM nummering)
-RELAY_PINS = {1: 17, 2: 27, 3: 22}
-REED_PINS  = {1: 5,  2: 6,  3: 13}
-RELAY_ACTIVE_HIGH = True  # False als relay actief-laag is
+RELAY_PINS      = {1: 17, 2: 27, 3: 22}   # trigger-relay (puls bij unlock)
+HOLD_RELAY_PINS = {1: 23, 2: 24, 3: 25}   # hold-relay (houdt solenoid open)
+REED_PINS       = {1: 5,  2: 6,  3: 13}
+RELAY_ACTIVE_HIGH  = True  # False als relay actief-laag is
+TRIGGER_PULSE_MS   = 500   # duur trigger-puls in milliseconden
 
 # Camera
 CAMERA_RESOLUTION = (1280, 720)

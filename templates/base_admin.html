@@ -55,7 +55,7 @@
       const overlay = document.getElementById('loadingOverlay');
       function showLoading() { if (overlay) overlay.classList.add('visible'); }
       document.addEventListener('submit', function(e) {
-        if (!e.target.hasAttribute('data-no-loading')) showLoading();
+        if (!e.defaultPrevented && !e.target.hasAttribute('data-no-loading')) showLoading();
       });
       document.addEventListener('click', function(e) {
         const a = e.target.closest('a[href]');
