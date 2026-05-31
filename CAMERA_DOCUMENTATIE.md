@@ -6,6 +6,7 @@
 
 ## Inhoudsopgave
 
+0. [Camera opzetten — stap voor stap](#0-camera-opzetten--stap-voor-stap)
 1. [Technische basis](#1-technische-basis)
 2. [Opname starten — alle triggers](#2-opname-starten--alle-triggers)
 3. [Opname stoppen — alle triggers](#3-opname-stoppen--alle-triggers)
@@ -18,6 +19,605 @@
 10. [Logging](#10-logging)
 11. [Configuratie-instellingen](#11-configuratie-instellingen)
 12. [Bekende randgevallen](#12-bekende-randgevallen)
+
+---
+
+## 0. Camera opzetten — stap voor stap
+
+> Dit gedeelte leidt je van een lege Raspberry Pi naar een werkende camera-opname. Elke stap bouwt voort op de vorige. Lees altijd de **foutmeldingen** helemaal voor je iets probeert op te lossen.
+
+---
+
+### Stap 0.1 — Benodigdheden controleren
+
+Controleer dat je het volgende hebt voordat je begint:
+
+| Wat | Waarom |
+|-----|--------|
+| Raspberry Pi 4 met Ubuntu | Het systeem werkt alleen op Linux |
+| USB-webcam | Elke standaard UVC-webcam werkt |
+| KSA Bar project geïnstalleerd | Zie `RASPBERRY_PI_INSTALLATIE.md` |
+| Internetverbinding (tijdelijk) | Voor installeren van ffmpeg |
+
+---
+
+### Stap 0.2 — ffmpeg installeren
+
+De camera-module gebruikt **ffmpeg** om video op te nemen. Dit moet apart worden geïnstalleerd.
+
+**Open een terminal op de Pi en typ:**
+
+```bash
+sudo apt update
+sudo apt install -y ffmpeg
+```
+
+> `sudo apt update` haalt de laatste lijst van beschikbare programma's op.  
+> `sudo apt install -y ffmpeg` installeert ffmpeg automatisch (`-y` bevestigt alle vragen).
+
+**Controleer of het gelukt is:**
+
+```bash
+ffmpeg -version
+```
+
+Je moet iets zien als:
+```
+ffmpeg version 6.x.x Copyright (c) ...
+```
+
+✅ **Gelukt:** je ziet een versienummer  
+❌ **Mislukt:** zie [Fout A](#fout-a--ffmpeg-niet-gevonden)
+
+---
+
+### Stap 0.3 — Webcam aansluiten
+
+1. Steek de USB-webcam in een **USB 3.0 poort** van de Pi (blauwe poort)
+2. Wacht 5 seconden
+3. Controleer of de Pi de webcam herkent:
+
+```bash
+ls /dev/video*
+```
+
+Je moet zien:
+```
+/dev/video0
+```
+
+(Soms ook `/dev/video1`, `/dev/video2` — dat is normaal, de eerste (`video0`) is jouw webcam)
+
+✅ **Gelukt:** `/dev/video0` verschijnt in de lijst  
+❌ **Mislukt:** zie [Fout B](#fout-b--devvideo0-bestaat-niet)
+
+---
+
+### Stap 0.4 — Webcam testen met ffmpeg
+
+Controleer of ffmpeg de webcam kan aanspreken door een testfoto te maken:
+
+```bash
+ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 /tmp/test.jpg -y
+```
+
+**Wat dit doet:** Maakt één foto (`-frames:v 1`) van de webcam en slaat die op als `/tmp/test.jpg`.
+
+**Controleer of de foto er is:**
+
+```bash
+ls -lh /tmp/test.jpg
+```
+
+Je moet een bestand zien met een grootte groter dan 0 bytes, bijv.:
+```
+-rw-r--r-- 1 ubuntu ubuntu 45K mei 31 19:00 /tmp/test.jpg
+```
+
+✅ **Gelukt:** bestandsgrootte > 0 bytes  
+❌ **Mislukt - "0 bytes":** zie [Fout C](#fout-c--testfoto-is-0-bytes)  
+❌ **Mislukt - foutmelding in terminal:** zie [Fout D](#fout-d--ffmpeg-geeft-een-foutmelding-bij-de-webcam)
+
+---
+
+### Stap 0.5 — Controleer welke resolutie de webcam ondersteunt
+
+Niet elke webcam ondersteunt 1280×720. Controleer dit:
+
+```bash
+sudo apt install -y v4l-utils
+v4l2-ctl --device=/dev/video0 --list-formats-ext
+```
+
+Je ziet een lijst van ondersteunde formaten. Zoek naar regels met `Size`:
+
+```
+[0]: 'MJPG' (Motion-JPEG, compressed)
+    Size: Discrete 1280x720
+        Interval: Discrete 0.067s (15.000 fps)
+    Size: Discrete 640x480
+        Interval: Discrete 0.033s (30.000 fps)
+```
+
+- Als `1280x720` met `15 fps` in de lijst staat → geen aanpassing nodig ✅
+- Als `1280x720` er **niet** in staat → zie [Stap 0.5a](#stap-05a--resolutie-aanpassen)
+
+#### Stap 0.5a — Resolutie aanpassen
+
+Open het configuratiebestand:
+
+```bash
+nano ~/ksa-bar/config.py
+```
+
+Pas de resolutie aan naar een waarde die jouw webcam wél ondersteunt:
+
+```python
+CAMERA_RESOLUTION = (640, 480)   # pas aan naar wat jouw webcam ondersteunt
+CAMERA_FPS = 30                  # pas framerate ook aan indien nodig
+```
+
+Sla op met `Ctrl+O`, dan `Enter`, dan `Ctrl+X`.
+
+---
+
+### Stap 0.6 — Controleer of de webcam niet op een ander nummer staat
+
+Als je meerdere video-apparaten hebt (bijv. `/dev/video0`, `/dev/video1`, `/dev/video2`), moet je controleren welke de echte webcam is:
+
+```bash
+v4l2-ctl --list-devices
+```
+
+Voorbeeld uitvoer:
+```
+USB 2.0 Camera: USB 2.0 Camera (usb-...-1.4):
+    /dev/video0
+    /dev/video2
+
+bcm2835-isp (platform:bcm2835-isp):
+    /dev/video13
+    /dev/video14
+```
+
+De eerste groep (met de naam van jouw webcam) is de juiste. Gebruik het **eerste** apparaat uit die groep.
+
+Als jouw webcam op `/dev/video2` staat (niet `/dev/video0`), pas dan `config.py` aan:
+
+```bash
+nano ~/ksa-bar/config.py
+```
+
+```python
+CAMERA_DEVICE = 2   # verander 0 naar het juiste nummer
+```
+
+---
+
+### Stap 0.7 — Permissies instellen voor de webcam
+
+Soms heeft de gebruiker geen toegang tot `/dev/video0`. Controleer dit:
+
+```bash
+ls -l /dev/video0
+```
+
+Je ziet zoiets als:
+```
+crw-rw----+ 1 root video 81, 0 mei 31 19:00 /dev/video0
+```
+
+De groep `video` heeft toegang. Voeg jouw gebruiker toe aan die groep:
+
+```bash
+sudo usermod -aG video $USER
+```
+
+**Daarna uitloggen en opnieuw inloggen** (of de Pi herstarten) zodat de groepswijziging van kracht wordt:
+
+```bash
+sudo reboot
+```
+
+Na herstart: herhaal Stap 0.4 om te controleren dat het nu werkt.
+
+---
+
+### Stap 0.8 — Een echte testopname maken
+
+Maak nu een opname van 5 seconden om te controleren dat alles werkt:
+
+```bash
+ffmpeg -f v4l2 -video_size 1280x720 -framerate 15 -i /dev/video0 \
+       -c:v libx264 -preset ultrafast -crf 28 -an -t 5 -y /tmp/test.mp4
+```
+
+**Uitleg:**
+- `-t 5` → opname duurt 5 seconden
+- `-c:v libx264` → H.264 videocompressie (zelfde als het echte systeem)
+- `-preset ultrafast` → minimale CPU-belasting
+- `-crf 28` → kwaliteitsinstelling (lager = hogere kwaliteit, groter bestand)
+- `-an` → geen audio
+
+**Controleer het resultaat:**
+
+```bash
+ls -lh /tmp/test.mp4
+```
+
+Het bestand moet groter dan 0 bytes zijn (bijv. 500KB–2MB voor 5 seconden).
+
+✅ **Gelukt:** bestand heeft inhoud  
+❌ **Mislukt:** zie [Fout D](#fout-d--ffmpeg-geeft-een-foutmelding-bij-de-webcam)
+
+---
+
+### Stap 0.9 — Map voor opnames controleren
+
+Het systeem slaat opnames op in de `videos/` map in het project. Controleer dat die map bestaat en schrijfbaar is:
+
+```bash
+ls -ld ~/ksa-bar/videos/
+```
+
+Als de map niet bestaat:
+
+```bash
+mkdir -p ~/ksa-bar/videos
+```
+
+Controleer dat de gebruiker er in mag schrijven:
+
+```bash
+touch ~/ksa-bar/videos/test.txt && echo "OK" && rm ~/ksa-bar/videos/test.txt
+```
+
+Je moet `OK` zien. Als je een foutmelding krijgt over permissies:
+
+```bash
+sudo chown -R $USER:$USER ~/ksa-bar/videos/
+```
+
+---
+
+### Stap 0.10 — Camera testen via de app zelf
+
+Start de app en controleer of de camera werkt via de hardware-testpagina:
+
+```bash
+cd ~/ksa-bar
+source venv/bin/activate
+python app.py
+```
+
+Open een browser en ga naar:
+```
+http://localhost:5000/admin/hardware-test
+```
+
+Log in als admin en gebruik de camera-knoppen op de testpagina. Controleer daarna:
+
+```bash
+ls -lh ~/ksa-bar/videos/
+```
+
+Je moet een map met de huidige datum zien, met een MP4-bestand erin.
+
+✅ **Gelukt:** MP4 aanwezig en groter dan 0 bytes  
+❌ **Mislukt:** zie [Fout E](#fout-e--app-maakt-lege-mp4-bestanden-aan)
+
+---
+
+### Stap 0.11 — Controleer de logs in de app
+
+Na een opname: ga naar **Admin → Logs** en filter op type `opname`.
+
+Je moet regels zien zoals:
+```
+opname | Opname gestart: 2025/10/15/20251015_143022_bestelling_Thomas.mp4
+opname | Opname gestopt: 2025/10/15/20251015_143022_bestelling_Thomas.mp4
+```
+
+Als je in de logs `Camera-fout: ffmpeg niet gevonden` ziet → zie [Fout A](#fout-a--ffmpeg-niet-gevonden).
+
+---
+
+## Foutmeldingen en oplossingen
+
+---
+
+### Fout A — ffmpeg niet gevonden
+
+**Symptoom:**
+```
+[WARN] ffmpeg niet gevonden
+```
+of
+```
+bash: ffmpeg: command not found
+```
+
+**Oorzaak:** ffmpeg is niet geïnstalleerd.
+
+**Oplossing:**
+
+```bash
+sudo apt update
+sudo apt install -y ffmpeg
+ffmpeg -version   # controleer
+```
+
+Als `apt install` mislukt door geen internetverbinding:
+
+```bash
+# Controleer verbinding
+ping -c 3 8.8.8.8
+
+# Als geen verbinding, probeer via ethernet ipv wifi
+# of schakel wifi opnieuw in:
+nmcli radio wifi off
+nmcli radio wifi on
+```
+
+---
+
+### Fout B — /dev/video0 bestaat niet
+
+**Symptoom:**
+```
+ls: cannot access '/dev/video*': No such file or directory
+```
+
+**Oorzaak:** De Pi herkent de webcam niet.
+
+**Stap 1:** Controleer of de webcam fysiek aangesloten is.
+
+**Stap 2:** Probeer een andere USB-poort (bij voorkeur de blauwe USB 3.0-poorten).
+
+**Stap 3:** Controleer of de Pi de webcam ziet in de USB-apparatenlijst:
+
+```bash
+lsusb
+```
+
+Zoek naar een regel met de naam van jouw webcam (bijv. `Logitech`, `Microsoft`, `USB Camera`):
+```
+Bus 001 Device 003: ID 046d:0825 Logitech, Inc. Webcam C270
+```
+
+Als de webcam **niet** in `lsusb` staat → is de webcam defect of niet compatibel.
+
+**Stap 4:** Als de webcam wel in `lsusb` staat maar niet in `/dev/video*`:
+
+```bash
+# Herlaad de USB-videostuurprogramma's
+sudo modprobe uvcvideo
+ls /dev/video*
+```
+
+**Stap 5:** Herstart de Pi:
+
+```bash
+sudo reboot
+```
+
+---
+
+### Fout C — Testfoto is 0 bytes
+
+**Symptoom:** `/tmp/test.jpg` bestaat maar is leeg (0 bytes).
+
+**Oorzaak:** ffmpeg kon geen beeld van de webcam lezen.
+
+**Stap 1:** Controleer of de webcam al in gebruik is door een ander programma:
+
+```bash
+sudo lsof /dev/video0
+```
+
+Als er een programma in de lijst staat, stop dat dan eerst.
+
+**Stap 2:** Probeer met expliciete invoerparameters:
+
+```bash
+ffmpeg -f v4l2 -video_size 640x480 -framerate 30 -i /dev/video0 -frames:v 1 /tmp/test2.jpg -y
+```
+
+**Stap 3:** Controleer de permissies (zie [Stap 0.7](#stap-07--permissies-instellen-voor-de-webcam)).
+
+---
+
+### Fout D — ffmpeg geeft een foutmelding bij de webcam
+
+**Symptoom:** ffmpeg toont een foutmelding in de terminal.
+
+#### "Invalid argument" of "VIDIOC_S_FMT"
+
+De webcam ondersteunt de gevraagde resolutie of framerate niet.
+
+```bash
+# Bekijk wat jouw webcam ondersteunt
+v4l2-ctl --device=/dev/video0 --list-formats-ext
+```
+
+Pas daarna `config.py` aan met een ondersteunde resolutie (zie [Stap 0.5a](#stap-05a--resolutie-aanpassen)).
+
+#### "Device or resource busy"
+
+De webcam is al in gebruik door een ander programma.
+
+```bash
+# Zoek welk programma de webcam gebruikt
+sudo lsof /dev/video0
+
+# Stop het proces (vervang <PID> door het getal uit de vorige uitvoer)
+sudo kill <PID>
+```
+
+Als de camera-module van de app nog draait, herstart de app.
+
+#### "No such file or directory: /dev/video0"
+
+De webcam staat op een ander apparaatnummer. Zie [Stap 0.6](#stap-06--controleer-of-de-webcam-niet-op-een-ander-nummer-staat).
+
+#### "Permission denied"
+
+Je hebt geen toegang tot `/dev/video0`. Zie [Stap 0.7](#stap-07--permissies-instellen-voor-de-webcam).
+
+#### "Unknown encoder 'libx264'"
+
+ffmpeg is geïnstalleerd maar zonder H.264 ondersteuning.
+
+```bash
+# Verwijder en herinstalleer met volledige ondersteuning
+sudo apt remove ffmpeg
+sudo apt install -y ffmpeg
+```
+
+Als dat niet helpt, installeer de volledige versie:
+
+```bash
+sudo apt install -y ffmpeg libx264-dev
+```
+
+---
+
+### Fout E — App maakt lege MP4-bestanden aan
+
+**Symptoom:** Er worden MP4-bestanden aangemaakt in `videos/`, maar ze zijn 0 bytes groot.
+
+**Oorzaak 1:** De app draait niet op een Raspberry Pi (`IS_RASPBERRY_PI = False`).
+
+Controleer:
+```bash
+cat /proc/device-tree/model
+```
+Als je `Raspberry Pi 4` ziet → Pi wordt herkend.  
+Als je een fout krijgt → de app denkt dat het geen Pi is en gebruikt stub-modus.
+
+Dit kan ook optreden als het bestand `/proc/device-tree/model` niet bestaat:
+```bash
+ls /proc/device-tree/model
+```
+
+Als het niet bestaat:
+```bash
+sudo apt install -y device-tree-compiler
+sudo reboot
+```
+
+**Oorzaak 2:** ffmpeg is niet gevonden. Controleer de logs (**Admin → Logs**, type `systeem`).
+
+**Oorzaak 3:** ffmpeg crasht onmiddellijk. Controleer via de terminal:
+
+```bash
+cd ~/ksa-bar
+source venv/bin/activate
+python -c "
+from hardware.camera import start_recording, stop_recording
+import time
+rec = start_recording('test')
+time.sleep(3)
+stop_recording()
+print('Klaar')
+"
+```
+
+Bekijk de uitvoer — je moet `[REC] Opname gestart:` en `[REC] Opname gestopt:` zien.
+
+---
+
+### Fout F — Opnames worden aangemaakt maar zijn corrupt
+
+**Symptoom:** MP4-bestanden zijn aanwezig maar kunnen niet worden afgespeeld.
+
+**Oorzaak 1:** De Pi verloor stroom tijdens een opname (MP4-container niet afgesloten).
+
+**Oplossing:** Herstel het bestand:
+```bash
+# Installeer mp4frag als dat beschikbaar is, of gebruik ffmpeg:
+ffmpeg -i corrupt_bestand.mp4 -c copy hersteld.mp4
+```
+
+**Oorzaak 2:** Schijfruimte vol tijdens opname.
+
+Controleer beschikbare ruimte:
+```bash
+df -h ~/ksa-bar/videos/
+```
+
+Als de schijf vol is:
+```bash
+# Verwijder handmatig oude opnames
+find ~/ksa-bar/videos/ -name "*.mp4" -mtime +30 -delete
+
+# Of pas de bewaarperiode aan via Admin → Instellingen → video_bewaar_dagen
+```
+
+---
+
+### Fout G — Opname stopt niet
+
+**Symptoom:** De app denkt dat een opname bezig is, maar ffmpeg is al gestopt.
+
+Herstart de Flask-app:
+```bash
+sudo systemctl restart ksa-bar
+```
+
+Of als je handmatig draait, stop de app met `Ctrl+C` en start opnieuw.
+
+---
+
+### Fout H — Geen video te zien in het admin-paneel
+
+**Symptoom:** Er is een MP4-bestand in `videos/`, maar de knop "Bekijk" verschijnt niet.
+
+**Oorzaak 1:** Het pad in de database klopt niet.
+
+Controleer via **Admin → Database** → tabel `orders` → kolom `video_path`. Het pad moet eruitzien als:
+```
+2025/10/15/20251015_143022_bestelling_Thomas.mp4
+```
+
+**Oorzaak 2:** Het bestand bestaat wel maar staat op de verkeerde locatie.
+
+```bash
+# Controleer of het bestand echt bestaat
+ls ~/ksa-bar/videos/2025/10/15/
+```
+
+---
+
+## Snelle probleemdiagnose — beslisboom
+
+```
+Camera werkt niet?
+│
+├── Bestaat /dev/video0?
+│   ├── Nee → Fout B (webcam niet herkend)
+│   └── Ja  →
+│
+├── ffmpeg geïnstalleerd? (ffmpeg -version)
+│   ├── Nee → Fout A (ffmpeg installeren)
+│   └── Ja  →
+│
+├── Testfoto maken gelukt? (Stap 0.4)
+│   ├── Nee: "Permission denied" → Fout D / Stap 0.7
+│   ├── Nee: "Invalid argument"  → Fout D / resolutie aanpassen
+│   ├── Nee: "Device busy"       → Fout D / ander programma stoppen
+│   └── Ja  →
+│
+├── Testopname (5 sec) gelukt? (Stap 0.8)
+│   ├── Nee → Fout D
+│   └── Ja  →
+│
+├── App maakt lege bestanden?
+│   └── Ja → Fout E (IS_RASPBERRY_PI check / ffmpeg crash)
+│
+└── Opnames corrupt?
+    └── Ja → Fout F (stroom / schijfruimte)
+```
 
 ---
 
