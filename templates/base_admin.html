@@ -59,7 +59,7 @@
       });
       document.addEventListener('click', function(e) {
         const a = e.target.closest('a[href]');
-        if (a && !a.hasAttribute('data-no-loading')) {
+        if (a && !a.hasAttribute('data-no-loading') && a.getAttribute('target') !== '_blank') {
           const href = a.getAttribute('href');
           if (href && !href.startsWith('#') && !href.startsWith('javascript')) showLoading();
         }
