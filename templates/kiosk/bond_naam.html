@@ -15,6 +15,7 @@
       <input type="hidden" name="person_id" value="{{ p.id }}">
       <button type="submit" class="persoon-kaart"
               data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
+        {% if toon_foto %}
         <div class="persoon-foto">
           {% if p.foto_path %}
             <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.voornaam }}">
@@ -22,7 +23,8 @@
             <span class="persoon-initiaal">{{ (p.bijnaam or p.voornaam)[0]|upper }}</span>
           {% endif %}
         </div>
-        <div class="persoon-naam">{{ p.bijnaam or p.voornaam }}</div>
+        {% endif %}
+        <div class="persoon-naam">{{ p.voornaam }}{% if p.bijnaam %}<span class="persoon-bijnaam">{{ p.bijnaam }}</span>{% endif %}</div>
       </button>
     </form>
     {% endfor %}

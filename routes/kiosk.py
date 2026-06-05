@@ -30,6 +30,9 @@ def alle_personen():
            ORDER BY LOWER(COALESCE(NULLIF(bijnaam,''), voornaam))"""
     )
 
+def persoon_foto_tonen():
+    return get_setting('persoon_foto_tonen', 'false') == 'true'
+
 def alle_producten_per_categorie():
     cats = query("SELECT * FROM categories ORDER BY volgorde")
     prods = query(
@@ -67,7 +70,7 @@ def bestelling_naam():
                     'current_person_id': None, 'current_person_naam': None, 'deuren_nodig': []}, ot)
     persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/order_name.html', personen=alle_personen(), extra=False,
-                           ot=ot, persoon_kolommen=persoon_kolommen)
+                           ot=ot, persoon_kolommen=persoon_kolommen, toon_foto=persoon_foto_tonen())
 
 
 @kiosk_bp.route('/bestelling/naam', methods=['POST'])
@@ -103,7 +106,7 @@ def bestelling_extra_persoon():
         return redirect(url_for('kiosk.home'))
     persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/order_name.html', personen=alle_personen(), extra=True,
-                           ot=ot, persoon_kolommen=persoon_kolommen)
+                           ot=ot, persoon_kolommen=persoon_kolommen, toon_foto=persoon_foto_tonen())
 
 
 @kiosk_bp.route('/bestelling/extra-persoon', methods=['POST'])
@@ -392,7 +395,15 @@ def baravond():
         if session.get('active_refill'):
             flash('Aanvulmodus is actief. Stop eerst de aanvulmodus voor je baravond start.', 'error')
             return redirect(url_for('kiosk.home'))
-        session['baravond_person_id'] = request.form.get('person_id', type=int)
+        pid = request.form.get('person_id', type=int)
+        session['baravond_person_id'] = pid
+        # Start opname zodra naam geselecteerd is
+        if not session.get('baravond_recording_path'):
+            p = query("SELECT voornaam, bijnaam FROM persons WHERE id=?", (pid,), one=True)
+            naam = (p['bijnaam'] or p['voornaam']) if p else 'baravond'
+            rec = start_recording(f"baravond_{naam}")
+            session['baravond_recording_path'] = rec.get_relatief_pad()
+            session.modified = True
     elif request.method == 'POST' and request.form.get('actie') == 'kies_stop_naam':
         session['baravond_stop_person_id'] = request.form.get('person_id', type=int)
 
@@ -407,11 +418,16 @@ def baravond():
                            actief_id=actief_id, session_person_id=session_person_id,
                            stop_person_id=stop_person_id,
                            persoon_kolommen=persoon_kolommen,
+                           toon_foto=persoon_foto_tonen(),
                            inv_kolommen=inv_kolommen)
 
 
 @kiosk_bp.route('/baravond/reset-naam', methods=['POST'])
 def baravond_reset_naam():
+    # Stop opname als die al gestart was
+    if session.get('baravond_recording_path'):
+        stop_recording()
+        session.pop('baravond_recording_path', None)
     session.pop('baravond_person_id', None)
     return redirect(url_for('kiosk.baravond'))
 
@@ -439,10 +455,16 @@ def baravond_start():
         except Exception:
             pass
 
-    rec = start_recording('baravond')
+    # Gebruik bestaande opname als die al bij naam selectie gestart was, anders start nieuw
+    bestaand_pad = session.pop('baravond_recording_path', None)
+    if bestaand_pad:
+        rec_pad = bestaand_pad
+    else:
+        rec = start_recording('baravond')
+        rec_pad = rec.get_relatief_pad()
     bar_id = execute(
         "INSERT INTO bar_evenings (activator_id, start_inventaris, video_path, naam) VALUES (?,?,?,?)",
-        (pid, json.dumps(inv), rec.get_relatief_pad(), naam)
+        (pid, json.dumps(inv), rec_pad, naam)
     )
 
     # Sla prijzen op als snapshot zodat latere prijswijzigingen niet de baravond beïnvloeden
@@ -533,7 +555,7 @@ def aanvullen():
 
     return render_template('kiosk/refill.html',
                            personen=personen, producten=producten, actief_id=actief_id,
-                           persoon_kolommen=persoon_kolommen,
+                           persoon_kolommen=persoon_kolommen, toon_foto=persoon_foto_tonen(),
                            layout=layout, product_names=product_names)
 
 
@@ -563,7 +585,8 @@ def aanvullen_stop_naam():
     return render_template('kiosk/refill_stop_naam.html',
                            personen=personen, door_data=door_data,
                            layout_data=layout_data,
-                           persoon_kolommen=persoon_kolommen)
+                           persoon_kolommen=persoon_kolommen,
+                           toon_foto=persoon_foto_tonen())
 
 
 @kiosk_bp.route('/aanvullen/stop', methods=['POST'])
@@ -642,27 +665,18 @@ def aanvullen_stop():
 
 @kiosk_bp.route('/de-bond')
 def de_bond():
-    # Start opname en sla op in sessie, toon dan naamkeuze
-    bond_sess = session.get('bond_session', {})
-    if not bond_sess.get('recording_path'):
-        rec = start_recording('de_bond')
-        session['bond_session'] = {
-            'recording_path': rec.get_relatief_pad(),
-            'person_id': None,
-            'person_naam': None,
-        }
-        session.modified = True
+    # Reset bond sessie zodat opname pas bij naam selectie start
+    session.pop('bond_session', None)
+    session.modified = True
     return redirect(url_for('kiosk.de_bond_naam'))
 
 
 @kiosk_bp.route('/de-bond/naam')
 def de_bond_naam():
-    if not session.get('bond_session', {}).get('recording_path'):
-        return redirect(url_for('kiosk.de_bond'))
     personen = alle_personen()
     persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/bond_naam.html', personen=personen,
-                           persoon_kolommen=persoon_kolommen)
+                           persoon_kolommen=persoon_kolommen, toon_foto=persoon_foto_tonen())
 
 
 @kiosk_bp.route('/de-bond/naam', methods=['POST'])
@@ -673,10 +687,13 @@ def de_bond_naam_post():
     p = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
     if not p:
         return redirect(url_for('kiosk.de_bond_naam'))
-    bond_sess = session.get('bond_session', {})
-    bond_sess['person_id']   = pid
-    bond_sess['person_naam'] = p['bijnaam'] or p['voornaam']
-    session['bond_session']  = bond_sess
+    naam = p['bijnaam'] or p['voornaam']
+    rec = start_recording(f"de_bond_{naam}")
+    session['bond_session'] = {
+        'recording_path': rec.get_relatief_pad(),
+        'person_id':   pid,
+        'person_naam': naam,
+    }
     session.modified = True
     return redirect(url_for('kiosk.de_bond_producten'))
 
@@ -801,7 +818,7 @@ def winkelaankoop():
     """Stap 1: persoon selecteren."""
     persoon_kolommen = int(get_setting('persoon_kolommen', '4'))
     return render_template('kiosk/shop_purchase_person.html', personen=alle_personen(),
-                           persoon_kolommen=persoon_kolommen)
+                           persoon_kolommen=persoon_kolommen, toon_foto=persoon_foto_tonen())
 
 
 @kiosk_bp.route('/winkelaankoop/<int:pid>')

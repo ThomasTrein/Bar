@@ -1095,6 +1095,7 @@ def instellingen():
             if v:
                 set_setting(k, v)
         set_setting('prijs_tonen', 'true' if request.form.get('prijs_tonen') == '1' else 'false')
+        set_setting('persoon_foto_tonen', 'true' if request.form.get('persoon_foto_tonen') == '1' else 'false')
 
         # Screensaver foto verwijderen
         if request.form.get('screensaver_foto_verwijderen') == '1':

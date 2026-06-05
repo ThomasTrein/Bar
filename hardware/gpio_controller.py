@@ -5,7 +5,7 @@ Op andere systemen: stub-implementatie voor development.
 """
 import threading, time, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from config import IS_RASPBERRY_PI, RELAY_PINS, HOLD_RELAY_PINS, REED_PINS, RELAY_ACTIVE_HIGH, TRIGGER_PULSE_MS
+from config import IS_RASPBERRY_PI, RELAY_PINS, HOLD_RELAY_PINS, REED_PINS, RELAY_ACTIVE_HIGH, TRIGGER_PULSE_MS, LOCK_DELAY_MS
 
 try:
     from gpiozero import OutputDevice, Button
@@ -185,6 +185,7 @@ class FridgeController:
             while ctrl.is_open():
                 time.sleep(0.1)
 
+            time.sleep(LOCK_DELAY_MS / 1000.0)
             ctrl.lock()
             self._fire_event('complete', door_id)
             if on_complete:

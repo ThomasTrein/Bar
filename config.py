@@ -23,6 +23,7 @@ HOLD_RELAY_PINS = {1: 23, 2: 24, 3: 25}   # hold-relay (houdt solenoid open)
 REED_PINS       = {1: 5,  2: 6,  3: 13}
 RELAY_ACTIVE_HIGH  = True  # False als relay actief-laag is
 TRIGGER_PULSE_MS   = 500   # duur trigger-puls in milliseconden
+LOCK_DELAY_MS      = 2000  # wachttijd (ms) na sluiten deur voor solenoid vergrendelt
 
 # Camera
 CAMERA_RESOLUTION = (1280, 720)
@@ -36,6 +37,7 @@ DEFAULT_SETTINGS = {
     'screensaver_timeout_min': '2',
     'admin_logout_min':        '10',
     'prijs_tonen':             'false',
+    'persoon_foto_tonen':      'false',
     'product_kolommen':        '2',
     'persoon_kolommen':        '4',
     'inv_kolommen':            '3',

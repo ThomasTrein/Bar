@@ -23,6 +23,27 @@
     </div>
 
   </div>
+
+  {% if order.regels %}
+  <div class="waiting-order-summary">
+    <div class="waiting-summary-title">Jouw bestelling</div>
+    {% set ns = namespace(current='') %}
+    {% for item in order.regels %}
+      {% if item.person_naam != ns.current %}
+        {% if not loop.first %}</div>{% endif %}
+        <div class="waiting-summary-person">
+        <div class="waiting-summary-person-name">{{ item.person_naam }}</div>
+        {% set ns.current = item.person_naam %}
+      {% endif %}
+      <div class="waiting-summary-item">
+        <span class="waiting-summary-qty">{{ item.hoeveelheid }}×</span>
+        <span class="waiting-summary-naam">{{ item.product_naam }}</span>
+      </div>
+    {% endfor %}
+    {% if order.regels %}</div>{% endif %}
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
 
