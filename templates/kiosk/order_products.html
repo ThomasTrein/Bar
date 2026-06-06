@@ -70,8 +70,10 @@
   {% set cat_prods_zichtbaar = producten | selectattr('categorie_id', 'equalto', cat.id)
                                          | rejectattr('id', 'in', blocked_prod_ids) | list %}
   {% if cat_prods_zichtbaar %}
-  <div class="product-grid cat-panel" id="cat-{{ cat.id }}"
-       style="grid-template-columns:repeat({{ product_kolommen }},1fr)">
+  <div class="cat-panel" id="cat-{{ cat.id }}">
+    <div class="cat-panel-header">{{ cat.naam }}</div>
+    <div class="product-grid"
+         style="grid-template-columns:repeat({{ product_kolommen }},1fr)">
     {% for p in cat_prods_zichtbaar %}
     <div class="product-kaart {% if (p.stock or 0) <= 0 %}product-leeg{% endif %}">
       <div class="product-foto">
@@ -117,6 +119,7 @@
       </div>
     </div>
     {% endfor %}
+    </div>
   </div>
   {% endif %}
   {% endif %}

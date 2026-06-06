@@ -54,6 +54,13 @@
       <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
         {% for p in cat_producten %}
         <div class="inv-kaart">
+          <div class="inv-kaart-foto">
+            {% if p.foto_path %}
+              <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+            {% else %}
+              <span class="inv-kaart-emoji">🥤</span>
+            {% endif %}
+          </div>
           <div class="inv-kaart-naam">{{ p.naam }}{% if not p.actief %} <span class="text-dim">(inactief)</span>{% endif %}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
@@ -77,6 +84,13 @@
       <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
         {% for p in ongecateg %}
         <div class="inv-kaart">
+          <div class="inv-kaart-foto">
+            {% if p.foto_path %}
+              <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+            {% else %}
+              <span class="inv-kaart-emoji">🥤</span>
+            {% endif %}
+          </div>
           <div class="inv-kaart-naam">{{ p.naam }}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
@@ -144,6 +158,13 @@
       <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
         {% for p in cat_producten %}
         <div class="inv-kaart">
+          <div class="inv-kaart-foto">
+            {% if p.foto_path %}
+              <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+            {% else %}
+              <span class="inv-kaart-emoji">🥤</span>
+            {% endif %}
+          </div>
           <div class="inv-kaart-naam">{{ p.naam }}</div>
           <div class="inv-qty-row">
             <button type="button" class="inv-qty-btn" onclick="changeInvQty(this,-1)">−</button>
