@@ -167,6 +167,13 @@ def bestelling_producten():
         blocked_cat_ids = {r['category_id'] for r in
             query("SELECT category_id FROM person_blocked_categories WHERE person_id=?", (pid,))}
 
+    # Producten zonder deur-koppeling zijn niet bestelbaar
+    unlinked_prod_ids = {r['id'] for r in
+        query("""SELECT p.id FROM products p
+                 WHERE p.actief=1
+                 AND NOT EXISTS (SELECT 1 FROM product_doors pd WHERE pd.product_id=p.id)""")}
+    blocked_prod_ids |= unlinked_prod_ids
+
     product_kolommen = int(get_setting('product_kolommen', '2'))
     return render_template('kiosk/order_products.html',
                            order=order, categorieen=cats, producten=prods,
