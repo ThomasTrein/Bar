@@ -9,38 +9,72 @@
   </div>
   <p class="page-intro">Producten voor de KSA zelf (puur verlies).</p>
 
-  {# Categorie tabs #}
-  <div class="cat-tabs">
-    {% for cat in categorieen %}
-    <button class="cat-tab {% if loop.first %}active{% endif %}"
-            onclick="showCat({{ cat.id }}, this)">{{ cat.naam }}</button>
-    {% endfor %}
-  </div>
+  <form method="POST" action="{{ url_for('kiosk.de_bond_bevestigen') }}" class="inventaris-form">
 
-  <form method="POST" action="{{ url_for('kiosk.de_bond_bevestigen') }}">
     {% for cat in categorieen %}
-    <div class="product-grid cat-panel" id="cat-{{ cat.id }}"
-         style="{% if not loop.first %}display:none{% endif %}">
-      {% for p in producten if p.categorie_id == cat.id %}
-      <div class="product-kaart {% if p.stock <= 0 %}product-leeg{% endif %}">
-        <div class="product-naam">{{ p.naam }}</div>
-        {% if p.stock <= 0 %}<div class="stock-leeg-label">NIET IN STOCK</div>{% endif %}
-        <div class="qty-row">
-          <button type="button" class="qty-btn" onclick="changeQty(this,-1)">−</button>
-          <input type="text" inputmode="none" name="qty_{{ p.id }}" value="0"
-                 min="0" max="99" class="qty-input" id="qty-{{ p.id }}" data-numeric-kbd="int">
-          <button type="button" class="qty-btn" onclick="changeQty(this,1)">+</button>
+    {% set cat_producten = producten | selectattr('categorie_id', 'equalto', cat.id) | list %}
+    {% if cat_producten %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">{{ cat.naam }}</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in cat_producten %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-foto">
+            {% if p.foto_path %}
+              <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+            {% else %}
+              <span class="inv-kaart-emoji">🥤</span>
+            {% endif %}
+          </div>
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          {% if p.stock <= 0 %}<div class="stock-leeg-label stock-leeg-label-small">NIET IN STOCK</div>{% endif %}
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeQty(this,-1)">−</button>
+            <input type="text" inputmode="none" name="qty_{{ p.id }}" value="0"
+                   min="0" max="99" class="inv-qty-input" id="qty-{{ p.id }}" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeQty(this,1)">+</button>
+          </div>
+          {% if p.bak_grootte %}
+          <button type="button" class="btn-bak" style="margin-top:4px"
+                  onclick="setBak({{ p.id }}, {{ p.bak_grootte }})">
+            🍺 Bak ({{ p.bak_grootte }})
+          </button>
+          {% endif %}
         </div>
-        {% if p.bak_grootte %}
-        <button type="button" class="btn-bak" style="margin-top:6px"
-                onclick="setBak({{ p.id }}, {{ p.bak_grootte }})">
-          🍺 Bak ({{ p.bak_grootte }})
-        </button>
-        {% endif %}
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
+    {% endif %}
     {% endfor %}
+
+    {# Producten zonder categorie #}
+    {% set ongecateg = producten | rejectattr('categorie_id', 'in', categorieen | map(attribute='id') | list) | list %}
+    {% if ongecateg %}
+    <div class="inv-cat-section">
+      <div class="inv-cat-titel">Overige</div>
+      <div class="inv-grid" style="grid-template-columns: repeat({{ inv_kolommen }}, 1fr)">
+        {% for p in ongecateg %}
+        <div class="inv-kaart">
+          <div class="inv-kaart-foto">
+            {% if p.foto_path %}
+              <img src="{{ url_for('serve_upload', pad=p.foto_path) }}" alt="{{ p.naam }}">
+            {% else %}
+              <span class="inv-kaart-emoji">🥤</span>
+            {% endif %}
+          </div>
+          <div class="inv-kaart-naam">{{ p.naam }}</div>
+          {% if p.stock <= 0 %}<div class="stock-leeg-label stock-leeg-label-small">NIET IN STOCK</div>{% endif %}
+          <div class="inv-qty-row">
+            <button type="button" class="inv-qty-btn" onclick="changeQty(this,-1)">−</button>
+            <input type="text" inputmode="none" name="qty_{{ p.id }}" value="0"
+                   min="0" max="99" class="inv-qty-input" id="qty-{{ p.id }}" data-numeric-kbd="int">
+            <button type="button" class="inv-qty-btn" onclick="changeQty(this,1)">+</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="bottom-bar">
       <button type="submit" class="btn-confirm">✅ Bevestigen & openen</button>
@@ -53,15 +87,9 @@
 
 {% block scripts %}
 <script>
-  function showCat(id, btn) {
-    document.querySelectorAll('.cat-panel').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('cat-' + id).style.display = '';
-    btn.classList.add('active');
-  }
   function changeQty(btn, delta) {
-    const inp = btn.parentElement.querySelector('.qty-input');
-    inp.value = Math.max(0, Math.min(99, parseInt(inp.value) + delta));
+    const inp = btn.parentElement.querySelector('.inv-qty-input');
+    inp.value = Math.max(0, Math.min(99, parseInt(inp.value || 0) + delta));
   }
   function setBak(productId, grootte) {
     const inp = document.getElementById('qty-' + productId);

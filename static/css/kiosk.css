@@ -1185,6 +1185,7 @@ html, body {
   flex-direction: column;
   gap: 8px;
 }
+.inv-kaart-inactief { opacity: .55; border-color: var(--border); }
 .inv-kaart-naam {
   font-size: 13px;
   font-weight: 600;

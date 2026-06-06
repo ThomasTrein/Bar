@@ -607,16 +607,6 @@ def aanvullen_stop():
     stopper_id = request.form.get('person_id', type=int)
 
     conn = get_db()
-    # Update product_doors from door_data
-    for prod_id_str, deuren in wijzigingen.items():
-        try:
-            prod_id = int(prod_id_str)
-            conn.execute("DELETE FROM product_doors WHERE product_id=?", (prod_id,))
-            for d in deuren:
-                conn.execute("INSERT OR IGNORE INTO product_doors (product_id,deur) VALUES (?,?)",
-                             (prod_id, int(d)))
-        except (ValueError, Exception):
-            pass
 
     # Update fridge_layout from layout_data ("d-v": [product_id, ...])
     if layout_data:
@@ -625,18 +615,32 @@ def aanvullen_stop():
             try:
                 parts = slot_key.split('-')
                 d, v = int(parts[0]), int(parts[1])
-                # Support both single int (legacy) and list
                 if isinstance(prod_ids, list):
                     ids = [int(x) for x in prod_ids if x]
                 else:
                     ids = [int(prod_ids)] if prod_ids else []
                 if ids:
-                    first_id = ids[0]
                     conn.execute(
                         "INSERT OR REPLACE INTO fridge_layout (deur, vak, product_id, product_ids) VALUES (?,?,?,?)",
-                        (d, v, first_id, json.dumps(ids))
+                        (d, v, ids[0], json.dumps(ids))
                     )
             except (ValueError, IndexError, Exception):
+                pass
+
+    # Rebuild product_doors directly from fridge_layout (more reliable than door_data via HTML)
+    conn.execute("DELETE FROM product_doors")
+    for row in conn.execute("SELECT deur, product_ids, product_id FROM fridge_layout"):
+        try:
+            pids = json.loads(row['product_ids']) if row['product_ids'] else [row['product_id']]
+        except Exception:
+            pids = [row['product_id']] if row['product_id'] else []
+        for pid in pids:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO product_doors (product_id, deur) VALUES (?,?)",
+                    (int(pid), int(row['deur']))
+                )
+            except Exception:
                 pass
 
     conn.commit()
@@ -704,8 +708,10 @@ def de_bond_producten():
     if not bond_sess.get('person_id'):
         return redirect(url_for('kiosk.de_bond_naam'))
     cats, prods = alle_producten_per_categorie()
+    inv_kolommen = int(get_setting('inv_kolommen', '3'))
     return render_template('kiosk/bond.html', categorieen=cats, producten=prods,
-                           person_naam=bond_sess['person_naam'])
+                           person_naam=bond_sess['person_naam'],
+                           inv_kolommen=inv_kolommen)
 
 
 @kiosk_bp.route('/de-bond/bevestigen', methods=['POST'])
@@ -827,7 +833,7 @@ def winkelaankoop_producten(pid):
     persoon = query("SELECT * FROM persons WHERE id=? AND actief=1", (pid,), one=True)
     if not persoon:
         return redirect(url_for('kiosk.winkelaankoop'))
-    producten = query("SELECT * FROM products WHERE actief=1 ORDER BY naam")
+    producten = query("SELECT * FROM products ORDER BY actief DESC, naam")
     cats = query("SELECT * FROM categories ORDER BY volgorde")
     inv_kolommen = int(get_setting('inv_kolommen', '3'))
     return render_template('kiosk/shop_purchase.html', persoon=persoon, producten=producten,

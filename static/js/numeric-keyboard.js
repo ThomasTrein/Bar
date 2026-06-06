@@ -46,9 +46,9 @@
     kbd.addEventListener('touchstart', function (e) { e.preventDefault(); }, { passive: false });
 
     var rows = [
-      ['7', '8', '9'],
-      ['4', '5', '6'],
       ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
       ['.', '0', 'BACK'],
       ['OK']
     ];
@@ -235,6 +235,16 @@
   }
 
   document.addEventListener('focusin', function (e) {
+    var el = e.target;
+    if (!el || el.tagName !== 'INPUT') return;
+    if (el.hasAttribute('data-numeric-kbd')) {
+      el.setAttribute('inputmode', 'none');
+      show(el);
+    }
+  });
+
+  // Also trigger on click/tap — in case the input is already focused (focusin won't fire again)
+  document.addEventListener('click', function (e) {
     var el = e.target;
     if (!el || el.tagName !== 'INPUT') return;
     if (el.hasAttribute('data-numeric-kbd')) {
