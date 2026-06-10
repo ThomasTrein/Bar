@@ -1,31 +1,48 @@
 #!/bin/bash
 # ─── KSA Bar Opstartscript ────────────────────────────────────────────────────
 # Gebruik: bash start.sh
-# Start de Flask webserver via gunicorn en opent Chromium in kiosk modus.
 
 cd "$(dirname "$0")"
 
 echo "=== KSA Bar starten ==="
 
-# Verifieer Python omgeving
 if [ ! -f "app.py" ]; then
     echo "FOUT: Voer dit script uit vanuit de Bar map."
     exit 1
 fi
 
-# Installeer dependencies als gunicorn nog niet beschikbaar is
-if ! python3 -c "import gunicorn" 2>/dev/null; then
-    echo "gunicorn installeren..."
-    pip3 install gunicorn --quiet
+# Zoek Python: gebruik venv als die bestaat, anders system python3
+VENV_PATHS=(
+    "$(dirname "$0")/venv"
+    "/home/Bar/venv"
+    "$HOME/Bar/venv"
+    "$HOME/venv"
+)
+
+PYTHON="python3"
+for venv in "${VENV_PATHS[@]}"; do
+    if [ -f "$venv/bin/python3" ]; then
+        PYTHON="$venv/bin/python3"
+        echo "Venv gevonden: $venv"
+        break
+    fi
+done
+
+echo "Python: $PYTHON"
+
+# Installeer gunicorn als het nog niet beschikbaar is
+if ! "$PYTHON" -c "import gunicorn" 2>/dev/null; then
+    echo "gunicorn installeren in venv..."
+    "$PYTHON" -m pip install gunicorn --quiet
 fi
 
 # Stop eventuele vorige instanties
 pkill -f "python3.*gunicorn" 2>/dev/null
 sleep 1
 
-# Start gunicorn via python3 -m (werkt altijd, ongeacht PATH)
+# Start gunicorn via de venv python (1 worker, 4 threads voor GPIO callbacks)
 echo "Webserver starten..."
-python3 -m gunicorn \
+"$PYTHON" -m gunicorn \
     --workers 1 \
     --threads 4 \
     --bind 0.0.0.0:5000 \
@@ -48,7 +65,7 @@ for i in $(seq 1 15); do
     sleep 1
 done
 
-# Open Chromium met Pi-vriendelijke instellingen
+# Open Chromium met Pi-vriendelijke instellingen (--disable-gpu voorkomt bevriezing)
 echo "Chromium openen..."
 chromium-browser \
     --kiosk \
@@ -65,11 +82,9 @@ chromium-browser \
     --mute-audio \
     --no-first-run \
     --safebrowsing-disable-auto-update \
-    --memory-pressure-off \
     http://localhost:5000 &
 
 echo "=== KSA Bar draait ==="
 echo "Druk Ctrl+C om alles te stoppen."
 
-# Wacht op gunicorn
 wait $GUNICORN_PID
