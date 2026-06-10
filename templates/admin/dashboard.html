@@ -40,7 +40,7 @@
       <tbody>
         {% for r in schulden %}
         <tr>
-          <td><a href="{{ url_for('admin.rekening_persoon', pid=r.id) }}" style="color:inherit">{{ r.bijnaam or r.voornaam }}</a></td>
+          <td><a href="{{ url_for('admin.rekening_persoon', pid=r.id) }}" style="color:inherit">{{ volnaam(r) }}</a></td>
           <td>€{{ "%.2f"|format(r.totaal) }}</td>
         </tr>
         {% else %}
@@ -73,7 +73,7 @@
         {% for b in recente %}
         <tr style="cursor:pointer" onclick="window.location='{{ url_for('admin.bestelling_detail', oid=b.id) }}'">
           <td>{{ b.tijdstip | localtime }}</td>
-          <td>{{ b.bijnaam or b.voornaam or '?' }}</td>
+          <td>{{ volnaam(b, '?') }}</td>
           <td>{{ b.items or 0 }}</td>
           <td>€{{ "%.2f"|format(b.totaal or 0) }}</td>
         </tr>

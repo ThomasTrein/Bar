@@ -28,7 +28,7 @@
     <tr class="{% if r.is_bond %}row-special{% endif %}">
       <td>
         <a href="{{ url_for('admin.rekening_persoon', pid=r.id) }}" style="color:inherit">
-          {{ r.bijnaam or ((r.voornaam or '') + ' ' + (r.achternaam or '')) | trim }}
+          {{ volnaam(r, r.voornaam or '—') }}
         </a>
         {% if r.is_bond %}<span class="badge-special">KSA</span>{% endif %}
       </td>

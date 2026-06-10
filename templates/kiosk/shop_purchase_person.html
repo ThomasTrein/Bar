@@ -13,7 +13,7 @@
        style="grid-template-columns: repeat({{ persoon_kolommen }}, 1fr)">
     {% for p in personen %}
     <a href="{{ url_for('kiosk.winkelaankoop_producten', pid=p.id) }}" class="persoon-kaart"
-       data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
+       data-zoek="{{ (p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
       {% if toon_foto %}
       <div class="persoon-foto">
         {% if p.foto_path %}

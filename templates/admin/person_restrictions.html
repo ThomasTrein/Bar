@@ -1,8 +1,8 @@
 {% extends "base_admin.html" %}
-{% block title %}Beperkingen — {{ persoon.bijnaam or persoon.voornaam }} — KSA Bar Admin{% endblock %}
+{% block title %}Beperkingen — {{ volnaam(persoon) }} — KSA Bar Admin{% endblock %}
 {% block content %}
 <div class="admin-page-header">
-  <h1>Beperkingen — {{ persoon.bijnaam or persoon.voornaam }}</h1>
+  <h1>Beperkingen — {{ volnaam(persoon) }}</h1>
   <a href="{{ url_for('admin.personen') }}" class="btn-secondary">← Terug naar personen</a>
 </div>
 

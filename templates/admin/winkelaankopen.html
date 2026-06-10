@@ -10,7 +10,7 @@
     <option value="">Alle personen</option>
     {% for p in personen %}
     <option value="{{ p.id }}" {% if filters.person_id == p.id %}selected{% endif %}>
-      {{ p.bijnaam or p.voornaam }}
+      {{ volnaam(p) }}
     </option>
     {% endfor %}
   </select>
@@ -35,7 +35,7 @@
     {% for a in aankopen %}
     <tr>
       <td>{{ a.tijdstip | localtime }}</td>
-      <td>{{ a.bijnaam or a.voornaam or '—' }}</td>
+      <td>{{ volnaam(a) }}</td>
       <td>{{ a.producten or 0 }}</td>
       <td>{{ a.items or 0 }}</td>
       <td>€{{ "%.2f"|format(a.totaal or 0) }}</td>

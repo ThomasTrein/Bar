@@ -19,7 +19,7 @@
       <input type="hidden" name="person_id" value="{{ p.id }}">
       <input type="hidden" name="ot" value="{{ ot }}">
       <button type="submit" class="persoon-kaart"
-              data-zoek="{{ ((p.bijnaam or '') + ' ' + p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
+              data-zoek="{{ (p.voornaam + ' ' + (p.achternaam or ''))|lower|trim }}">
         {% if toon_foto %}
         <div class="persoon-foto">
           {% if p.foto_path %}

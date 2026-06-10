@@ -25,9 +25,10 @@
 </p>
 
 {% if order.video_path %}
-<p><strong>Video:</strong>
-  <a href="{{ url_for('serve_video', pad=order.video_path) }}" target="_blank">Bekijken</a>
-</p>
+<p><strong>Video:</strong></p>
+<video controls style="width:100%;max-width:640px;border-radius:8px;margin-top:8px">
+  <source src="{{ url_for('serve_video', pad=order.video_path) }}" type="video/mp4">
+</video>
 {% endif %}
 
 {% if items %}
@@ -47,7 +48,7 @@
     <tbody>
       {% for item in items %}
       <tr>
-        <td>{{ item.bijnaam or item.voornaam or 'Onbekend' }}</td>
+        <td>{{ volnaam(item, 'Onbekend') }}</td>
         <td>{{ item.product_naam or 'Verwijderd product' }}</td>
         <td>
           {% if not order.geannuleerd %}

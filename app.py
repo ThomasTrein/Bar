@@ -44,6 +44,15 @@ def create_app():
         from database.db import get_setting
         return {'screensaver_foto': get_setting('screensaver_foto', '')}
 
+    # Jinja2 template global: geef volledige naam (voornaam + achternaam) terug
+    @app.template_global()
+    def volnaam(obj, fallback='—'):
+        if obj is None:
+            return fallback
+        v = obj.get('voornaam', '') or '' if hasattr(obj, 'get') else ''
+        a = obj.get('achternaam', '') or '' if hasattr(obj, 'get') else ''
+        return (f"{v} {a}".strip()) or fallback
+
     # Jinja2 filter: converteer UTC datetime string naar Belgische lokale tijd
     @app.template_filter('localtime')
     def localtime_filter(value):
@@ -103,4 +112,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

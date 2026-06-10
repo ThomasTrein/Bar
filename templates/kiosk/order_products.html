@@ -136,7 +136,7 @@
     <form method="POST" action="{{ url_for('kiosk.bestelling_producten_post') }}" style="display:inline">
       <input type="hidden" name="actie" value="overzicht">
       <input type="hidden" name="ot" value="{{ ot }}">
-      <button type="submit" class="btn-primary">Overzicht ({{ order.regels|length }})</button>
+      <button type="submit" class="btn-primary">Winkelwagen 🛒 ({{ order.regels|length }})</button>
     </form>
     {% endif %}
     <form method="POST" action="{{ url_for('kiosk.bestelling_annuleren') }}" style="display:inline">

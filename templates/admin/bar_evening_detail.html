@@ -23,8 +23,8 @@
     <table class="admin-table">
       <tr><td>Start</td><td>{{ be.start_tijd | localtime if be.start_tijd else '—' }}</td></tr>
       <tr><td>Einde</td><td>{{ be.eind_tijd | localtime if be.eind_tijd else '—' }}</td></tr>
-      <tr><td>Gestart door</td><td>{{ (activator.bijnaam or activator.voornaam) if activator else '?' }}</td></tr>
-      <tr><td>Gestopt door</td><td>{{ (deactivator.bijnaam or deactivator.voornaam) if deactivator else '—' }}</td></tr>
+      <tr><td>Gestart door</td><td>{{ volnaam(activator, '?') }}</td></tr>
+      <tr><td>Gestopt door</td><td>{{ volnaam(deactivator) }}</td></tr>
     </table>
   </div>
   <div class="dash-card">

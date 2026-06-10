@@ -1,8 +1,8 @@
 {% extends "base_admin.html" %}
-{% block title %}Rekening {{ persoon.bijnaam or persoon.voornaam }} — KSA Bar Admin{% endblock %}
+{% block title %}Rekening {{ volnaam(persoon, persoon.voornaam) }} — KSA Bar Admin{% endblock %}
 {% block content %}
 <div class="admin-page-header">
-  <h1>Rekening — {{ persoon.bijnaam or (persoon.voornaam + ' ' + (persoon.achternaam or '')) | trim }}</h1>
+  <h1>Rekening — {{ volnaam(persoon) }}</h1>
   <a href="{{ url_for('admin.rekening') }}" class="btn-secondary">← Overzicht</a>
 </div>
 

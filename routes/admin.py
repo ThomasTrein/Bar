@@ -58,7 +58,7 @@ def logout():
 @login_required
 def dashboard():
     openstaand = query(
-        """SELECT p.id, p.voornaam, p.bijnaam,
+        """SELECT p.id, p.voornaam, p.achternaam, p.bijnaam,
                COALESCE(SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot),0) as totaal
            FROM persons p
            JOIN order_items oi ON oi.person_id = p.id
@@ -72,7 +72,7 @@ def dashboard():
            WHERE p.actief=1 ORDER BY p.stock ASC LIMIT 20"""
     )
     recente = query(
-        """SELECT o.id, o.tijdstip, o.type, p.voornaam, p.bijnaam,
+        """SELECT o.id, o.tijdstip, o.type, p.voornaam, p.achternaam, p.bijnaam,
                COUNT(oi.id) as items,
                SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal
            FROM orders o
@@ -450,10 +450,7 @@ def bestellingen():
         'product_id': request.args.get('product_id', type=int),
     }
     sql = """SELECT o.id, o.tijdstip, o.type, o.geannuleerd, o.deur_niet_geopend, o.video_path,
-                    p.voornaam, p.bijnaam,
-                    COUNT(oi.id) as items,
-                    SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal
-             FROM orders o
+                    p.voornaam, p.achternaam, p.bijnaam,
              LEFT JOIN persons p ON o.gestart_door_id=p.id
              LEFT JOIN order_items oi ON oi.order_id=o.id
              WHERE 1=1"""
@@ -468,8 +465,7 @@ def bestellingen():
         sql += " AND oi.product_id = ?"; params.append(filters['product_id'])
     sql += " GROUP BY o.id ORDER BY o.tijdstip DESC LIMIT 200"
 
-    pers = query("SELECT id,voornaam,bijnaam FROM persons WHERE actief=1 ORDER BY voornaam")
-    prods = query("SELECT id,naam FROM products WHERE actief=1 ORDER BY naam")
+    pers = query("SELECT id,voornaam,achternaam,bijnaam FROM persons WHERE actief=1 ORDER BY voornaam")
     return render_template('admin/orders.html',
                            bestellingen=query(sql, params),
                            personen=pers, producten=prods, filters=filters)
@@ -482,7 +478,7 @@ def bestelling_detail(oid):
     if not order:
         return render_template('admin/order_detail.html', order=None, items=[]), 404
     items = query(
-        """SELECT oi.*, p.voornaam, p.bijnaam, pr.naam as product_naam
+        """SELECT oi.*, p.voornaam, p.achternaam, p.bijnaam, pr.naam as product_naam
            FROM order_items oi
            LEFT JOIN persons p  ON oi.person_id=p.id
            LEFT JOIN products pr ON oi.product_id=pr.id
@@ -758,8 +754,8 @@ def rekening_export():
 def baravond_list():
     baravonden = query(
         """SELECT be.*,
-                  pa.voornaam as activator_voornaam, pa.bijnaam as activator_bijnaam,
-                  pd.voornaam as deactivator_voornaam, pd.bijnaam as deactivator_bijnaam
+                  pa.voornaam as activator_voornaam, pa.achternaam as activator_achternaam, pa.bijnaam as activator_bijnaam,
+                  pd.voornaam as deactivator_voornaam, pd.achternaam as deactivator_achternaam, pd.bijnaam as deactivator_bijnaam
            FROM bar_evenings be
            LEFT JOIN persons pa ON be.activator_id = pa.id
            LEFT JOIN persons pd ON be.deactivator_id = pd.id
@@ -850,9 +846,9 @@ def baravond_detail(bid):
         })
     regels.sort(key=lambda r: r['verbruikt'], reverse=True)
 
-    activator = query("SELECT voornaam, bijnaam FROM persons WHERE id=?",
+    activator = query("SELECT voornaam, achternaam, bijnaam FROM persons WHERE id=?",
                       (be['activator_id'],), one=True)
-    deactivator = (query("SELECT voornaam, bijnaam FROM persons WHERE id=?",
+    deactivator = (query("SELECT voornaam, achternaam, bijnaam FROM persons WHERE id=?",
                           (be['deactivator_id'],), one=True)
                    if be['deactivator_id'] else None)
 
@@ -932,7 +928,7 @@ def winkelaankopen():
         'datum_tot': request.args.get('datum_tot', ''),
     }
     sql = """SELECT sp.id, sp.tijdstip, sp.person_id,
-                    p.voornaam, p.bijnaam,
+                    p.voornaam, p.achternaam, p.bijnaam,
                     COUNT(spi.id) as producten,
                     COALESCE(SUM(spi.hoeveelheid), 0) as items,
                     COALESCE(SUM(spi.hoeveelheid * spi.aankoop_prijs_per_stuk), 0) as totaal
@@ -949,7 +945,7 @@ def winkelaankopen():
         sql += " AND sp.tijdstip<=?"; params.append(filters['datum_tot'] + ' 23:59:59')
     sql += " GROUP BY sp.id ORDER BY sp.tijdstip DESC"
 
-    pers = query("SELECT id,voornaam,bijnaam FROM persons ORDER BY voornaam")
+    pers = query("SELECT id,voornaam,achternaam,bijnaam FROM persons ORDER BY voornaam")
     aankopen = query(sql, params)
     return render_template('admin/winkelaankopen.html',
                            aankopen=aankopen, personen=pers, filters=filters)
@@ -959,7 +955,7 @@ def winkelaankopen():
 @login_required
 def winkelaankoop_detail(aid):
     aankoop = query(
-        """SELECT sp.*, p.voornaam, p.bijnaam
+        """SELECT sp.*, p.voornaam, p.achternaam, p.bijnaam
            FROM shop_purchases sp
            LEFT JOIN persons p ON sp.person_id=p.id
            WHERE sp.id=?""", (aid,), one=True)
@@ -1009,7 +1005,7 @@ def logs():
         'datum_van': request.args.get('datum_van', ''),
         'datum_tot': request.args.get('datum_tot', ''),
     }
-    sql = """SELECT l.*, p.voornaam, p.bijnaam
+    sql = """SELECT l.*, p.voornaam, p.achternaam, p.bijnaam
              FROM logs l LEFT JOIN persons p ON l.person_id=p.id WHERE 1=1"""
     params = []
     if filters['type']:
@@ -1022,7 +1018,7 @@ def logs():
         sql += " AND l.tijdstip<=?"; params.append(filters['datum_tot'] + ' 23:59:59')
     sql += " ORDER BY l.tijdstip DESC LIMIT 500"
 
-    pers = query("SELECT id,voornaam,bijnaam FROM persons ORDER BY voornaam")
+    pers = query("SELECT id,voornaam,achternaam,bijnaam FROM persons ORDER BY voornaam")
     # Haal video paden op via referentie_id naar orders
     logs_list = query(sql, params)
     # Voeg video_path toe voor bestellingen
