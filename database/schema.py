@@ -215,6 +215,12 @@ def init_db():
         except Exception:
             pass  # Kolom/tabel bestaat al
 
+    # WAL checkpoint bij opstarten om de database compact te houden
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception:
+        pass
+
     conn.close()
     print("[OK] Database geinitialiseerd.")
 

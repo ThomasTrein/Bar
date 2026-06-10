@@ -116,6 +116,8 @@ def create_app():
     return app
 
 
+# WSGI-entry point voor gunicorn: gunicorn "app:create_app()"
+# Direct opstarten (python app.py) blijft ook werken
 if __name__ == '__main__':
     app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

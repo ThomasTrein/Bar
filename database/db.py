@@ -29,11 +29,23 @@ def query(sql, params=(), one=False):
     return (rv[0] if rv else None) if one else rv
 
 
+_write_counter = 0
+_CHECKPOINT_INTERVAL = 100
+
+
 def execute(sql, params=()):
+    global _write_counter
     conn = get_db()
     cur = conn.execute(sql, params)
     conn.commit()
     lastrowid = cur.lastrowid
+    _write_counter += 1
+    if _write_counter >= _CHECKPOINT_INTERVAL:
+        _write_counter = 0
+        try:
+            conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        except Exception:
+            pass
     conn.close()
     return lastrowid
 
