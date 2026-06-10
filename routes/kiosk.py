@@ -27,7 +27,7 @@ def alle_personen():
     return query(
         """SELECT id, voornaam, achternaam, bijnaam, foto_path
            FROM persons WHERE actief = 1 AND is_bond = 0
-           ORDER BY LOWER(COALESCE(NULLIF(bijnaam,''), voornaam))"""
+           ORDER BY LOWER(voornaam), LOWER(COALESCE(achternaam, ''))"""
     )
 
 def persoon_foto_tonen():
