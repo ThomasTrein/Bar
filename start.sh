@@ -20,12 +20,12 @@ if ! python3 -c "import gunicorn" 2>/dev/null; then
 fi
 
 # Stop eventuele vorige instanties
-pkill -f "gunicorn.*app:app" 2>/dev/null
+pkill -f "python3.*gunicorn" 2>/dev/null
 sleep 1
 
-# Start gunicorn (1 worker, threaded voor GPIO callbacks)
+# Start gunicorn via python3 -m (werkt altijd, ongeacht PATH)
 echo "Webserver starten..."
-gunicorn \
+python3 -m gunicorn \
     --workers 1 \
     --threads 4 \
     --bind 0.0.0.0:5000 \
