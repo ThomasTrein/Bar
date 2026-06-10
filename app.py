@@ -49,8 +49,14 @@ def create_app():
     def volnaam(obj, fallback='—'):
         if obj is None:
             return fallback
-        v = obj.get('voornaam', '') or '' if hasattr(obj, 'get') else ''
-        a = obj.get('achternaam', '') or '' if hasattr(obj, 'get') else ''
+        try:
+            v = obj['voornaam'] or ''
+        except (KeyError, IndexError, TypeError):
+            v = ''
+        try:
+            a = obj['achternaam'] or ''
+        except (KeyError, IndexError, TypeError):
+            a = ''
         return (f"{v} {a}".strip()) or fallback
 
     # Jinja2 filter: converteer UTC datetime string naar Belgische lokale tijd

@@ -41,6 +41,7 @@
       <tr>
         <th>Persoon</th>
         <th>Product</th>
+        <th>Deur</th>
         <th>Hoeveelheid</th>
         <th>Prijs/stuk</th>
       </tr>
@@ -50,6 +51,7 @@
       <tr>
         <td>{{ volnaam(item, 'Onbekend') }}</td>
         <td>{{ item.product_naam or 'Verwijderd product' }}</td>
+        <td>{% if item.deuren %}<strong>Deur {{ item.deuren }}</strong>{% else %}—{% endif %}</td>
         <td>
           {% if not order.geannuleerd %}
           <input type="number" name="qty_{{ item.id }}" value="{{ item.hoeveelheid }}"

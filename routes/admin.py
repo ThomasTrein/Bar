@@ -451,6 +451,9 @@ def bestellingen():
     }
     sql = """SELECT o.id, o.tijdstip, o.type, o.geannuleerd, o.deur_niet_geopend, o.video_path,
                     p.voornaam, p.achternaam, p.bijnaam,
+                    COUNT(oi.id) as items,
+                    SUM(oi.hoeveelheid * oi.verkoop_prijs_snapshot) as totaal
+             FROM orders o
              LEFT JOIN persons p ON o.gestart_door_id=p.id
              LEFT JOIN order_items oi ON oi.order_id=o.id
              WHERE 1=1"""
@@ -465,6 +468,7 @@ def bestellingen():
         sql += " AND oi.product_id = ?"; params.append(filters['product_id'])
     sql += " GROUP BY o.id ORDER BY o.tijdstip DESC LIMIT 200"
 
+    prods = query("SELECT id,naam FROM products ORDER BY naam")
     pers = query("SELECT id,voornaam,achternaam,bijnaam FROM persons WHERE actief=1 ORDER BY voornaam")
     return render_template('admin/orders.html',
                            bestellingen=query(sql, params),
@@ -478,11 +482,14 @@ def bestelling_detail(oid):
     if not order:
         return render_template('admin/order_detail.html', order=None, items=[]), 404
     items = query(
-        """SELECT oi.*, p.voornaam, p.achternaam, p.bijnaam, pr.naam as product_naam
+        """SELECT oi.*, p.voornaam, p.achternaam, p.bijnaam, pr.naam as product_naam,
+                  GROUP_CONCAT(DISTINCT pd.deur) as deuren
            FROM order_items oi
            LEFT JOIN persons p  ON oi.person_id=p.id
            LEFT JOIN products pr ON oi.product_id=pr.id
-           WHERE oi.order_id=?""", (oid,)
+           LEFT JOIN product_doors pd ON oi.product_id=pd.product_id
+           WHERE oi.order_id=?
+           GROUP BY oi.id""", (oid,)
     )
     return render_template('admin/order_detail.html', order=order, items=items)
 
