@@ -299,8 +299,8 @@ sudo umount /mnt/usb
 > **Waarom een virtuele omgeving (venv)?** Dit is een afgeschermde Python-installatie alleen voor dit project. Zo raken de Python-pakketten van de app niet verward met de systeempackages van Ubuntu.
 
 ```bash
-# Ga naar de projectmap
-cd ~/ksa-bar
+# Ga naar de projectmap (de map heet "Bar", niet "ksa-bar")
+cd ~/Bar
 
 # Maak een virtuele omgeving aan
 python3 -m venv venv
@@ -329,6 +329,7 @@ pip install gpiozero lgpio
 > - `Pillow` — beeldverwerking (afbeeldingen schalen, uploaden)
 > - `openpyxl` — Excel-exports in het admin-paneel
 > - `reportlab` — PDF-exports in het admin-paneel
+> - `gunicorn` — stabiele productiewebserver (sneller en betrouwbaarder dan de ingebouwde Flask server)
 >
 > De GPIO-pakketten (`gpiozero`, `lgpio`) staan **niet** in `requirements.txt` omdat ze alleen op een Raspberry Pi werken. Installeer ze apart na de basis-pakketten.
 
@@ -552,39 +553,80 @@ sudo reboot
 
 ## 12. Automatisch opstarten bij het aanzetten van de Pi
 
-> **Waarom systemd?** Systemd is het systeem dat Ubuntu gebruikt om programma's te starten en te beheren. Door een "service" aan te maken, start de Flask-app automatisch op bij het opstarten van de Pi, ook als er iets misgaat (de app herstart zichzelf automatisch).
+> **Hoe werkt het opstarten?**  
+> De Pi gebruikt twee mechanismen:
+> 1. **systemd service** — start de webserver (`gunicorn`) op de achtergrond, nog vóór de desktop laadt
+> 2. **GNOME autostart** — opent Chromium in kiosk-modus zodra de desktop klaar is
 
-### Service-bestand aanmaken
+---
+
+### Stap 1: Controleer of de venv bestaat
+
+```bash
+ls /home/ksa/Bar/venv/bin/python3
+```
+
+Als je `No such file or directory` krijgt, maak de venv dan eerst aan:
+
+```bash
+cd /home/ksa/Bar
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install gpiozero lgpio
+deactivate
+```
+
+Controleer daarna opnieuw:
+```bash
+ls /home/ksa/Bar/venv/bin/python3
+# Moet tonen: /home/ksa/Bar/venv/bin/python3
+```
+
+---
+
+### Stap 2: start.sh uitvoerbaar maken
+
+```bash
+chmod +x /home/ksa/Bar/start.sh
+```
+
+Test het script handmatig (om te verifiëren dat alles werkt):
+```bash
+cd /home/ksa/Bar
+bash start.sh
+```
+Je moet `=== KSA Bar draait ===` zien. Stop het daarna met `Ctrl+C`.
+
+---
+
+### Stap 3: systemd service aanmaken (voor de webserver)
+
+> De systemd service start alleen de webserver (`gunicorn`). Chromium wordt apart gestart via GNOME autostart (stap 4).
 
 ```bash
 sudo nano /etc/systemd/system/ksa-bar.service
 ```
 
-Kopieer de volgende inhoud (pas de paden aan als je een andere gebruikersnaam hebt dan `ksa`):
+Kopieer de volgende inhoud exact:
 
 ```ini
 [Unit]
-Description=KSA Bar Systeem
-# Wacht tot het systeem volledig opgestart is
-After=network.target multi-user.target
+Description=KSA Bar Webserver
+After=network.target
 
 [Service]
 Type=simple
-# Gebruiker die de app draait
 User=ksa
 Group=ksa
-# Map waar app.py staat
-WorkingDirectory=/home/ksa/ksa-bar
-# Commando om de app te starten
-ExecStart=/home/ksa/ksa-bar/venv/bin/python app.py
-# Automatisch herstarten als de app crasht
+WorkingDirectory=/home/ksa/Bar
+ExecStart=/home/ksa/Bar/venv/bin/python3 -m gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5000 --timeout 120 "app:create_app()"
 Restart=always
 RestartSec=5
-# Omgevingsvariabelen
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
-# Start bij het opstarten van het systeem
 WantedBy=multi-user.target
 ```
 
@@ -593,20 +635,76 @@ Sla op: `Ctrl + O` → Enter → `Ctrl + X`
 ### Service activeren
 
 ```bash
-# Systemd opnieuw laden zodat de nieuwe service herkend wordt
 sudo systemctl daemon-reload
-
-# De service automatisch laten starten bij opstarten
 sudo systemctl enable ksa-bar
-
-# De service nu starten (zonder te rebooten)
 sudo systemctl start ksa-bar
-
-# Controleer of de service draait
 sudo systemctl status ksa-bar
 ```
 
 Je moet zien: `Active: active (running)`
+
+---
+
+### Stap 4: Chromium automatisch openen via GNOME autostart
+
+Maak een wacht-script aan:
+
+```bash
+nano /home/ksa/Bar/start_kiosk.sh
+```
+
+Inhoud:
+```bash
+#!/bin/bash
+# Wacht tot de webserver bereikbaar is (max 30 seconden)
+for i in $(seq 1 30); do
+    if curl -s http://localhost:5000 > /dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+
+# Schermbeveiliging uitschakelen
+xset s off
+xset s noblank
+xset -dpms
+
+# Chromium openen in kiosk-modus (--disable-gpu voorkomt bevriezing)
+chromium-browser \
+    --kiosk \
+    --disable-gpu \
+    --no-sandbox \
+    --disable-dev-shm-usage \
+    --disable-extensions \
+    --no-first-run \
+    http://localhost:5000
+```
+
+Sla op en maak uitvoerbaar:
+```bash
+chmod +x /home/ksa/Bar/start_kiosk.sh
+```
+
+Maak de GNOME autostart-map aan:
+```bash
+mkdir -p ~/.config/autostart
+nano ~/.config/autostart/ksa-kiosk.desktop
+```
+
+Inhoud:
+```ini
+[Desktop Entry]
+Type=Application
+Name=KSA Bar Kiosk
+Exec=/home/ksa/Bar/start_kiosk.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+```
+
+Sla op: `Ctrl + O` → Enter → `Ctrl + X`
+
+---
 
 ### Service beheren
 
@@ -620,34 +718,38 @@ sudo systemctl stop ksa-bar
 # Service herstarten
 sudo systemctl restart ksa-bar
 
-# Logs bekijken (wat de app uitprint)
+# Logs bekijken (live)
 sudo journalctl -u ksa-bar -f
 
 # Laatste 50 regels logs
-sudo journalctl -u ksa-bar -n 50
+sudo journalctl -u ksa-bar -n 50 --no-pager
 ```
+
+---
+
+### Handmatig opstarten (zonder automatisch opstarten)
+
+Als je alles in één keer wil starten vanuit de terminal (webserver + Chromium):
+
+```bash
+cd /home/ksa/Bar
+bash start.sh
+```
+
+---
 
 ### Als de service niet start
 
 ```bash
-# Bekijk de foutmeldingen
-sudo journalctl -u ksa-bar -n 100 --no-pager
+sudo journalctl -u ksa-bar -n 50 --no-pager
 ```
 
 Veel voorkomende problemen:
-- **Fout: `venv/bin/python not found`** → de venv bestaat niet op het opgegeven pad
+- **`Unable to locate executable`** → venv bestaat niet of pad is fout. Voer stap 1 opnieuw uit.
+- **`No module named gunicorn`** → `pip install gunicorn` uitvoeren in de venv
+- **`Permission denied`** → bestandsrechten aanpassen:
   ```bash
-  ls /home/ksa/ksa-bar/venv/bin/python
-  # Als dit niet bestaat:
-  cd /home/ksa/ksa-bar
-  python3 -m venv venv
-  source venv/bin/activate
-  pip install -r requirements.txt
-  pip install gpiozero lgpio
-  ```
-- **Fout: `Permission denied`** → bestandsrechten aanpassen
-  ```bash
-  sudo chown -R ksa:ksa /home/ksa/ksa-bar
+  sudo chown -R ksa:ksa /home/ksa/Bar
   ```
 
 ---
